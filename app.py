@@ -63,6 +63,8 @@ if "chosen_cup" in form_data:
     else:
         st.session_state.streak = 0
         st.session_state.last_result = f"❌ Wrong! The ball was under Cup {winning + 1}."
+    
+    # FIXED: Lock the stage into RESULT to keep navigation buttons visible
     st.session_state.stage = "RESULT"
     st.rerun()
 
@@ -97,18 +99,16 @@ if st.session_state.stage == "MENU":
             st.rerun()
 
 elif st.session_state.stage == "RESULT":
-    # Show navigation options directly below the game box after a round completes
+    st.markdown("<p style='text-align: center;'>Round Finished! What would you like to do next?</p>", unsafe_allow_html=True)
     nav_col1, nav_col2 = st.columns(2)
     with nav_col1:
         if st.button("🔄 Play Again", type="primary", use_container_width=True):
-            # Instant replay with current difficulty level selection
             st.session_state.winning_cup = random.randint(0, DIFFICULTY_METRICS[st.session_state.difficulty]["cups"] - 1)
             st.session_state.last_result = None
             st.session_state.stage = "GAME"
             st.rerun()
     with nav_col2:
         if st.button("🔙 Main Menu", use_container_width=True):
-            # Back out completely to change modes
             st.session_state.last_result = None
             st.session_state.stage = "MENU"
             st.rerun()
@@ -224,14 +224,12 @@ CANVAS_GAME_HTML = """
     if (!isStaticMode) startNextSwap();
 
     function gameLoop(currentTime) {
-        // DELTA TIME FRAME RECONCILIATION LAYER: Guarantees uniform rendering speed cross-platform
         let dt = (currentTime - lastTime) / 1000;
-        if (dt > 0.1) dt = 0.1; // Cap jumps during tab switches
+        if (dt > 0.1) dt = 0.1;
         lastTime = currentTime;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Render circular platform silhouette
         const grd = ctx.createLinearGradient(0, 190, 0, 310);
         grd.addColorStop(0, '#161920');
         grd.addColorStop(1, '#252a36');
@@ -241,7 +239,7 @@ CANVAS_GAME_HTML = """
         ctx.fill();
 
         if (gameState === "static_preview") {
-            statusOverlay.innerText = "Game Over or Menu Active!";
+            statusOverlay.innerText = "Round complete!";
             ballVisible = true;
             ballX = cups.find(c => c.id === winningCup).x;
         } 
@@ -266,7 +264,6 @@ CANVAS_GAME_HTML = """
         } 
         else if (gameState === "shuffle") {
             statusOverlay.innerText = "⚡ Shuffling cups... Watch closely!";
-            // Use real time duration multipliers instead of rigid frame indexes
             swapProgress += (baseSpeed / 100) * dt;
 
             const cA = cups[swapA];
@@ -296,7 +293,6 @@ CANVAS_GAME_HTML = """
             statusOverlay.innerText = "👉 Tap on the cup hiding the ball!";
         }
 
-        // Render Ball Object
         if (ballVisible) {
             ctx.beginPath();
             ctx.arc(ballX, 235, 12, 0, 2 * Math.PI);
@@ -308,7 +304,6 @@ CANVAS_GAME_HTML = """
             ctx.closePath();
         }
 
-        // Render Cup Objects
         cups.forEach(cup => {
             const cx = cup.x;
             const cy = cup.y - cup.liftY;
@@ -341,6 +336,5 @@ CANVAS_GAME_HTML = """
 </script>
 """
 
-# Push clean container out downstream 
 st.components.v1.html(CANVAS_GAME_HTML, height=395, scrolling=False)
 st.markdown("<p style='text-align: center; color: gray; font-size: 11px;'>Optimized for mobile touchscreens and desktop viewports.</p>", unsafe_allow_html=True)
