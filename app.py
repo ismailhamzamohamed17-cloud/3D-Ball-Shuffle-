@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Deep clean canvas framing constraints to match standard application windows
+# Clean up layout view frame sizes to optimize screen space
 st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -48,14 +48,13 @@ with col_sc1:
 with col_sc2:
     st.metric("Streak 🔥", st.session_state.streak)
 
-# --- CAPTURE HIGH-SECURITY FORM SELECTION PAYLOADS ---
-# Checks for user clicks without refreshing or breaking query parameters
-form_data = st.context.get_all_query_params() if hasattr(st, 'context') else st.query_params
-chosen_param = st.session_state.get("js_chosen", None)
+# --- CAPTURE CHOICE PAYLOAD VIA ST.QUERY_PARAMS ---
+# Standard cross-platform parameter fetch method
+form_data = st.query_params
 
 if "chosen_cup" in form_data:
-    chosen = int(form_data["chosen_cup"][0] if isinstance(form_data["chosen_cup"], list) else form_data["chosen_cup"])
-    winning = int(form_data["winning_cup"][0] if isinstance(form_data["winning_cup"], list) else form_data.get("winning_cup", 0))
+    chosen = int(form_data["chosen_cup"])
+    winning = int(form_data.get("winning_cup", 0))
     st.query_params.clear()
     
     if chosen == winning:
@@ -98,12 +97,12 @@ if st.session_state.stage == "MENU":
             st.session_state.stage = "GAME"
             st.rerun()
 
-# Map properties down into string variables
+# Map properties into temporary rendering hooks
 metrics = DIFFICULTY_METRICS[st.session_state.difficulty]
 num_cups = metrics["cups"]
 shuffle_speed = metrics["speed"]
 is_menu_mode_js = "true" if st.session_state.stage == "MENU" else "false"
-# --- HIGH-COMPATIBILITY SHADER ENGINE & FORM HANDLER ---
+# --- HIGH-COMPATIBILITY NATIVE CANVAS GAMEENGINE ---
 CANVAS_GAME_HTML = """
 <div id="canvas-container" style="width: 100%; height: 380px; background: #12131a; border-radius: 16px; overflow: hidden; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
     <canvas id="gameCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
@@ -111,12 +110,6 @@ CANVAS_GAME_HTML = """
         Ready...
     </div>
 </div>
-
-<!-- HIDDEN AUTO-SUBMIT DATA TUNNEL FOR PARENT CONTAINER SYNCHRONIZATION -->
-<form id="stBridgeForm" method="GET" action="/" target="_parent" style="display:none;">
-    <input type="hidden" name="chosen_cup" id="form_chosen_cup">
-    <input type="hidden" name="winning_cup" id="form_winning_cup">
-</form>
 
 <script>
 (function() {
@@ -192,10 +185,11 @@ CANVAS_GAME_HTML = """
                     ballVisible = true;
 
                     if (liftProgress >= 1) {
-                        // NATIVE TRANSMISSION METHOD: Routes selection safely using standard target submit forms
-                        document.getElementById('form_chosen_cup').value = cup.id;
-                        document.getElementById('form_winning_cup').value = winningCup;
-                        document.getElementById('stBridgeForm').submit();
+                        // SAFE WINDOW REDIRECT CHANNEL: Works perfectly across all responsive layouts
+                        const targetUrl = window.parent.location.href.split('?')[0] + 
+                                          '?chosen_cup=' + cup.id + 
+                                          '&winning_cup=' + winningCup;
+                        window.parent.location.href = targetUrl;
                     } else {
                         requestAnimationFrame(liftTransition);
                     }
@@ -216,7 +210,7 @@ CANVAS_GAME_HTML = """
         stateTimer += 0.016;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Render shadow tabletop area
+        // Render circular platform silhouette
         const grd = ctx.createLinearGradient(0, 190, 0, 310);
         grd.addColorStop(0, '#161920');
         grd.addColorStop(1, '#252a36');
@@ -230,7 +224,7 @@ CANVAS_GAME_HTML = """
             ballVisible = false;
         } 
         else if (gameState === "reveal_ball") {
-            statusOverlay.innerText = "👀 Watch carefully! Memorize the ball...";
+            statusOverlay.innerText = "👀 Remember the ball location...";
             cups[winningCup].liftY = Math.min(cups[winningCup].liftY + 4, 70);
             if (stateTimer > 1.5) {
                 gameState = "drop_cups";
@@ -247,7 +241,7 @@ CANVAS_GAME_HTML = """
             }
         } 
         else if (gameState === "shuffle") {
-            statusOverlay.innerText = "⚡ Shuffling cups... Keep tracking!";
+            statusOverlay.innerText = "⚡ Shuffling cups... Watch closely!";
             swapProgress += 0.045 * speedModifier;
 
             const cA = cups[swapA];
@@ -277,7 +271,7 @@ CANVAS_GAME_HTML = """
             statusOverlay.innerText = "👉 Tap on the cup hiding the ball!";
         }
 
-        // Draw Ball Object
+        // Render Ball Object
         if (ballVisible) {
             ctx.beginPath();
             ctx.arc(ballX, 235, 12, 0, 2 * Math.PI);
@@ -289,7 +283,7 @@ CANVAS_GAME_HTML = """
             ctx.closePath();
         }
 
-        // Draw Cups Objects
+        // Render Cup Objects
         cups.forEach(cup => {
             const cx = cup.x;
             const cy = cup.y - cup.liftY;
@@ -322,6 +316,6 @@ CANVAS_GAME_HTML = """
 </script>
 """
 
-# Render framework elements safely downstream
+# Push clean container out downstream 
 st.components.v1.html(CANVAS_GAME_HTML, height=395, scrolling=False)
 st.markdown("<p style='text-align: center; color: gray; font-size: 11px;'>Optimized for mobile touchscreens and desktop viewports.</p>", unsafe_allow_html=True)
