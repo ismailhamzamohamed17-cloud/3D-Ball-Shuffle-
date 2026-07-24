@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Hide Streamlit structural clutter to maximize mobile device focus
+# Hide Streamlit structural clutter to maximize display area
 st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -70,11 +70,6 @@ with col_sc2:
 if st.session_state.last_result:
     st.info(st.session_state.last_result)
 
-# Fetch configuration stats
-metrics = DIFFICULTY_METRICS[st.session_state.difficulty]
-num_cups = metrics["cups"]
-shuffle_speed = metrics["speed"]
-
 # --- HANDLE GRAPHICS LIFECYCLE ROUTING ---
 if st.session_state.stage == "MENU":
     st.markdown("<p style='text-align: center;'>Choose difficulty below to start playing!</p>", unsafe_allow_html=True)
@@ -105,15 +100,17 @@ if st.session_state.stage == "MENU":
             st.session_state.last_result = None
             st.session_state.stage = "GAME"
             st.rerun()
-            
-    # Display Frozen Preview Table state while waiting
-    num_cups = 3
-    shuffle_speed = 0.0
-    # --- FULLY RESIZEABLE THREE.JS WEBGL CONTAINER ---
+
+# Fetch active configuration stats
+metrics = DIFFICULTY_METRICS[st.session_state.difficulty]
+num_cups = metrics["cups"]
+shuffle_speed = metrics["speed"]
+is_menu_mode_js = "true" if st.session_state.stage == "MENU" else "false"
+# --- FULLY EMBEDDED RESIZEABLE THREE.JS RENDERING ENGINE ---
 THREE_JS_HTML = """
 <div id="canvas-container" style="width: 100%; height: 380px; background: #12131a; border-radius: 16px; overflow: hidden; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
     <div id="status-overlay" style="position: absolute; top: 12px; left: 12px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 10;">
-        Ready...
+        Loading game...
     </div>
 </div>
 
@@ -123,17 +120,16 @@ THREE_JS_HTML = """
     const container = document.getElementById('canvas-container');
     const statusOverlay = document.getElementById('status-overlay');
     
-    const config = window.STREAMLIT_GAME_CONFIG || { numCups: 3, winningCup: 0, shuffleSpeed: 0.0, stage: "MENU" };
-    const numCups = config.numCups;
-    const winningCup = config.winningCup;
-    const speedModifier = config.shuffleSpeed;
-    const isMenuMode = (config.stage === "MENU");
+    // Core parameters injected natively from Python variables to ensure load timing
+    const numCups = """ + str(num_cups) + """;
+    const winningCup = """ + str(st.session_state.winning_cup) + """;
+    const speedModifier = """ + str(shuffle_speed) + """;
+    const isMenuMode = """ + is_menu_mode_js + """;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x12131a);
 
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / 380, 0.1, 1000);
-    // Dynamically adjust camera zoom depending on mobile vs desktop widths
     if(container.clientWidth < 480) {
         camera.position.set(0, 8.5, 11);
     } else {
@@ -147,7 +143,6 @@ THREE_JS_HTML = """
     renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Realistic Shader Illumination Setup
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
@@ -156,7 +151,6 @@ THREE_JS_HTML = """
     spotlight.castShadow = true;
     scene.add(spotlight);
 
-    // Polished Obsidian Tabletop Surface Mesh
     const tableGeo = new THREE.CylinderGeometry(8, 8.5, 1, 32);
     const tableMat = new THREE.MeshStandardMaterial({ color: 0x1f222a, roughness: 0.2, metalness: 0.7 });
     const table = new THREE.Mesh(tableGeo, tableMat);
@@ -165,11 +159,9 @@ THREE_JS_HTML = """
     scene.add(table);
 
     const cups = [];
-    // Auto-scale layout item gaps on narrow smartphone displays
     const spacing = container.clientWidth < 480 ? 1.4 : 1.9;
     const startX = -((numCups - 1) * spacing) / 2;
 
-    // Shiny Ceramic Red Ball Object
     const ballGeo = new THREE.SphereGeometry(0.25, 32, 32);
     const ballMat = new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.1, metalness: 0.3 });
     const ball = new THREE.Mesh(ballGeo, ballMat);
@@ -182,7 +174,6 @@ THREE_JS_HTML = """
         const cupContainer = new THREE.Group();
         cupContainer.position.set(startX + (i * spacing), 0, 0);
 
-        // Smooth Procedural Mahogany Wood/Copper Material Texture
         const bodyGeo = new THREE.CylinderGeometry(0.5, 0.65, 1.5, 32);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffa726, roughness: 0.3, metalness: 0.4 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -196,7 +187,6 @@ THREE_JS_HTML = """
     }
     scene.add(cupGroup);
 
-    // Dynamic State Routing Lifecycle Loops
     let gameState = isMenuMode ? "static_preview" : "reveal_ball"; 
     let stateTimer = 0;
     let shufflePhase = 0;
@@ -204,7 +194,6 @@ THREE_JS_HTML = """
     let swapLeftIdx = 0, swapRightIdx = 0;
     let swapProgress = 0;
 
-    // Mobile-Friendly Touch Pointer Raycasting
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -266,8 +255,12 @@ THREE_JS_HTML = """
 
         if (gameState === "static_preview") {
             statusOverlay.innerText = "Select Difficulty Above To Play!";
+            // Make preview cups spin slowly to prove WebGL engine is functional
+            cupGroup.rotation.y += 0.005;
+            ball.visible = false;
         }
         else if (gameState === "reveal_ball") {
+            ball.visible = true;
             statusOverlay.innerText = "👀 Watch carefully! Memorize the ball...";
             cups.forEach(c => {
                 if (c.userData.index === winningCup) {
@@ -337,17 +330,6 @@ THREE_JS_HTML = """
 </script>
 """
 
-# --- ATTACH PIPELINE LAYER FOR LIVE PROCESSING ---
-config_injection = f"""
-<script>
-    window.STREAMLIT_GAME_CONFIG = {{
-        numCups: {num_cups},
-        winningCup: {st.session_state.winning_cup},
-        shuffleSpeed: {shuffle_speed},
-        stage: "{st.session_state.stage}"
-    }};
-</script>
-"""
-
-st.components.v1.html(config_injection + THREE_JS_HTML, height=395, scrolling=False)
+# Render combined string output straight downstream
+st.components.v1.html(THREE_JS_HTML, height=395, scrolling=False)
 st.markdown("<p style='text-align: center; color: gray; font-size: 11px;'>Optimized for mobile touchscreens and desktop viewports.</p>", unsafe_allow_html=True)
