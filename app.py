@@ -85,7 +85,6 @@ compiled_html = THREE_JS_HTML.format(
 st.components.v1.html(compiled_html, height=470, scrolling=False)
 st.markdown("---")
 st.caption("Powered by Streamlit engine and Three.js real-time WebGL rendering wrappers.")
-
 THREE_JS_HTML = """
 <div id="canvas-container" style="width: 100%; height: 450px; background: linear-gradient(135deg, #111, #222); border-radius: 12px; overflow: hidden; position: relative;">
     <div id="status-overlay" style="position: absolute; top: 15px; left: 15px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 10;">
