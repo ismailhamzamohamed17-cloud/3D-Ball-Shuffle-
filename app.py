@@ -8,17 +8,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- INITIALIZE SESSION STATE ---
-if "game_id" not in st.session_state:
-    st.session_state.game_id = 0
-if "score" not in st.session_state:
-    st.session_state.score = 0
-if "streak" not in st.session_state:
-    st.session_state.streak = 0
-if "last_result" not in st.session_state:
-    st.session_state.last_result = None
-
-# --- DIFFICULTY METRICS CONFIGURATION ---
+# --- DIFFICULTY CONFIGURATION ---
 DIFFICULTY_CONFIG = {
     "Easy": {"cups": 3, "speed": 1.5},
     "Medium": {"cups": 4, "speed": 2.2},
@@ -26,9 +16,9 @@ DIFFICULTY_CONFIG = {
 }
 
 st.title("🔮 3D Realistic Cup Shuffle")
-st.write("Track the ball in a real-time WebGL 3D environment. Higher difficulties increase cup counts and shuffle velocities.")
+st.write("Track the ball in a real-time WebGL 3D environment. Higher difficulties increase cup counts.")
 
-# --- CONFIGURATION SIDEBAR ---
+# --- SIDEBAR SETTINGS ---
 st.sidebar.header("🎮 Game Settings")
 difficulty = st.sidebar.selectbox(
     "Select Difficulty Level:",
@@ -39,7 +29,18 @@ config = DIFFICULTY_CONFIG[difficulty]
 num_cups = config["cups"]
 shuffle_speed = config["speed"]
 
-# Reset trigger button
+# --- INITIALIZE SESSION STATE & FORCE AUTO-START ---
+if "game_id" not in st.session_state:
+    st.session_state.game_id = 1
+    st.session_state.winning_cup = random.randint(0, num_cups - 1)
+if "score" not in st.session_state:
+    st.session_state.score = 0
+if "streak" not in st.session_state:
+    st.session_state.streak = 0
+if "last_result" not in st.session_state:
+    st.session_state.last_result = None
+
+# Manual Reset button
 if st.button("🔀 Start New 3D Shuffle", type="primary", use_container_width=True):
     st.session_state.game_id += 1
     st.session_state.winning_cup = random.randint(0, num_cups - 1)
@@ -55,7 +56,7 @@ if "chosen_cup" in query_params:
     if chosen == winning:
         st.session_state.score += 1
         st.session_state.streak += 1
-        st.session_state.last_result = f"🎉 Correct! You accurately tracked the ball under Cup {chosen + 1}."
+        st.session_state.last_result = f"🎉 Correct! You found it under Cup {chosen + 1}."
     else:
         st.session_state.streak = 0
         st.session_state.last_result = f"❌ Wrong! The ball was hiding under Cup {winning + 1}."
@@ -72,12 +73,11 @@ if st.session_state.last_result:
 
 if "winning_cup" not in st.session_state:
     st.session_state.winning_cup = random.randint(0, num_cups - 1)
-    # --- EMBEDDED JAVASCRIPT & THREE.JS ENGINE ---
-# Paste this text block directly underneath Block 1 inside your app.py file
+    # --- EMBEDDED THREE.JS WEBGL RENDER ENGINE ---
 THREE_JS_HTML = """
-<div id="canvas-container" style="width: 100%; height: 450px; background: linear-gradient(135deg, #111, #222); border-radius: 12px; overflow: hidden; position: relative;">
-    <div id="status-overlay" style="position: absolute; top: 15px; left: 15px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 10;">
-        Ready to Shuffle...
+<div id="canvas-container" style="width: 100%; height: 450px; background: #1a1a24; border-radius: 12px; overflow: hidden; position: relative;">
+    <div id="status-overlay" style="position: absolute; top: 15px; left: 15px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.75); padding: 8px 15px; border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 10;">
+        Initializing Canvas...
     </div>
 </div>
 
@@ -87,7 +87,7 @@ THREE_JS_HTML = """
     const container = document.getElementById('canvas-container');
     const statusOverlay = document.getElementById('status-overlay');
     
-    const config = window.STREAMLIT_GAME_CONFIG || { numCups: 3, winningCup: 0, shuffleSpeed: 1.5, gameId: 0 };
+    const config = window.STREAMLIT_GAME_CONFIG || { numCups: 3, winningCup: 0, shuffleSpeed: 1.5, gameId: 1 };
     const numCups = config.numCups;
     const winningCup = config.winningCup;
     const speedModifier = config.shuffleSpeed;
@@ -106,7 +106,7 @@ THREE_JS_HTML = """
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xffeebb, 0.8);
