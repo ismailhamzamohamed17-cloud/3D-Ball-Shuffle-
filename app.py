@@ -1,6 +1,5 @@
 import streamlit as st
 import random
-from three_js_template import THREE_JS_HTML
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -19,7 +18,7 @@ if "streak" not in st.session_state:
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
 
-# --- DIFFICULTY CONFIGURATION ---
+# --- DIFFICULTY METRICS CONFIGURATION ---
 DIFFICULTY_CONFIG = {
     "Easy": {"cups": 3, "speed": 1.5},
     "Medium": {"cups": 4, "speed": 2.2},
@@ -27,9 +26,9 @@ DIFFICULTY_CONFIG = {
 }
 
 st.title("🔮 3D Realistic Cup Shuffle")
-st.write("Track the ball in real-time WebGL. Adjust settings to scale difficulty levels.")
+st.write("Track the ball in a real-time WebGL 3D environment. Higher difficulties increase cup counts and shuffle velocities.")
 
-# --- SIDEBAR SETTINGS ---
+# --- CONFIGURATION SIDEBAR ---
 st.sidebar.header("🎮 Game Settings")
 difficulty = st.sidebar.selectbox(
     "Select Difficulty Level:",
@@ -40,13 +39,13 @@ config = DIFFICULTY_CONFIG[difficulty]
 num_cups = config["cups"]
 shuffle_speed = config["speed"]
 
-# Start match trigger
+# Reset trigger button
 if st.button("🔀 Start New 3D Shuffle", type="primary", use_container_width=True):
     st.session_state.game_id += 1
     st.session_state.winning_cup = random.randint(0, num_cups - 1)
     st.session_state.last_result = None
 
-# --- INTERCEPT INCOMING SCORE MESSAGES ---
+# --- PROCESS JAVASCRIPT RESPONSES ---
 query_params = st.query_params
 if "chosen_cup" in query_params:
     chosen = int(query_params["chosen_cup"])
@@ -56,7 +55,7 @@ if "chosen_cup" in query_params:
     if chosen == winning:
         st.session_state.score += 1
         st.session_state.streak += 1
-        st.session_state.last_result = f"🎉 Correct! The ball was under Cup {chosen + 1}."
+        st.session_state.last_result = f"🎉 Correct! You accurately tracked the ball under Cup {chosen + 1}."
     else:
         st.session_state.streak = 0
         st.session_state.last_result = f"❌ Wrong! The ball was hiding under Cup {winning + 1}."
@@ -73,23 +72,8 @@ if st.session_state.last_result:
 
 if "winning_cup" not in st.session_state:
     st.session_state.winning_cup = random.randint(0, num_cups - 1)
-
-# --- INJECT AND RUN WEBGL LAYOUT ---
-# Dynamically pass configurations downstream via safe script header injections
-config_injection = f"""
-<script>
-    window.STREAMLIT_GAME_CONFIG = {{
-        numCups: {num_cups},
-        winningCup: {st.session_state.winning_cup},
-        shuffleSpeed: {shuffle_speed},
-        gameId: {st.session_state.game_id}
-    }};
-</script>
-"""
-
-st.components.v1.html(config_injection + THREE_JS_HTML, height=470, scrolling=False)
-st.markdown("---")
-st.caption("Powered by Streamlit engine and Three.js real-time WebGL rendering wrappers.")
+    # --- EMBEDDED JAVASCRIPT & THREE.JS ENGINE ---
+# Paste this text block directly underneath Block 1 inside your app.py file
 THREE_JS_HTML = """
 <div id="canvas-container" style="width: 100%; height: 450px; background: linear-gradient(135deg, #111, #222); border-radius: 12px; overflow: hidden; position: relative;">
     <div id="status-overlay" style="position: absolute; top: 15px; left: 15px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 10;">
@@ -103,7 +87,6 @@ THREE_JS_HTML = """
     const container = document.getElementById('canvas-container');
     const statusOverlay = document.getElementById('status-overlay');
     
-    // Read variables injected from Python context safely
     const config = window.STREAMLIT_GAME_CONFIG || { numCups: 3, winningCup: 0, shuffleSpeed: 1.5, gameId: 0 };
     const numCups = config.numCups;
     const winningCup = config.winningCup;
@@ -303,3 +286,19 @@ THREE_JS_HTML = """
 })();
 </script>
 """
+
+# --- INJECT CONFIG AND RENDER ENGINE ---
+config_injection = f"""
+<script>
+    window.STREAMLIT_GAME_CONFIG = {{
+        numCups: {num_cups},
+        winningCup: {st.session_state.winning_cup},
+        shuffleSpeed: {shuffle_speed},
+        gameId: {st.session_state.game_id}
+    }};
+</script>
+"""
+
+st.components.v1.html(config_injection + THREE_JS_HTML, height=470, scrolling=False)
+st.markdown("---")
+st.caption("Powered by Streamlit engine and Three.js real-time WebGL rendering wrappers.")
