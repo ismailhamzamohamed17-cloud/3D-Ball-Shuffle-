@@ -1,6 +1,5 @@
 import streamlit as st
 import random
-import json
 
 # --- SECURE RESPONSIVE PAGE ARCHITECTURE ---
 st.set_page_config(
@@ -10,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Clean up Streamlit layout framing for a unified experience
+# Remove layout padding gaps to center the mobile view surface nicely
 st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -35,9 +34,9 @@ if "winning_cup" not in st.session_state:
 
 # CONFIGURATION BALANCING METRICS
 DIFFICULTY_METRICS = {
-    "Easy": {"cups": 3, "speed": 1.6},
-    "Medium": {"cups": 4, "speed": 2.3},
-    "Hard": {"cups": 5, "speed": 3.1}
+    "Easy": {"cups": 3, "speed": 1.4},
+    "Medium": {"cups": 4, "speed": 2.2},
+    "Hard": {"cups": 5, "speed": 3.2}
 }
 
 # --- HEADER INTERACTIVE PANEL ---
@@ -84,218 +83,175 @@ metrics = DIFFICULTY_METRICS[st.session_state.difficulty]
 num_cups = metrics["cups"]
 shuffle_speed = metrics["speed"]
 is_menu_mode_js = "true" if st.session_state.stage == "MENU" else "false"
-# --- EMBEDDED HIGH-SECURITY 3D ENGINE MODULE ---
-THREE_JS_HTML = """
+# --- NATIVE SELF-CONTAINED HIGH-PERFORMANCE 3D ENGINE MODULE ---
+CANVAS_GAME_HTML = """
 <div id="canvas-container" style="width: 100%; height: 380px; background: #12131a; border-radius: 16px; overflow: hidden; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
+    <canvas id="gameCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
     <div id="status-overlay" style="position: absolute; top: 12px; left: 12px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 10;">
-        Initializing Canvas...
+        Ready...
     </div>
 </div>
 
-<script src="https://cloudflare.com"></script>
 <script>
 (function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
     const container = document.getElementById('canvas-container');
     const statusOverlay = document.getElementById('status-overlay');
     
+    // Injected properties from Python State Management layer
     const numCups = """ + str(num_cups) + """;
     const winningCup = """ + str(st.session_state.winning_cup) + """;
     const speedModifier = """ + str(shuffle_speed) + """;
     const isMenuMode = """ + is_menu_mode_js + """;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x12131a);
-
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / 380, 0.1, 1000);
-    if(container.clientWidth < 480) {
-        camera.position.set(0, 8.5, 11);
-    } else {
-        camera.position.set(0, 7.5, 9);
+    // Layout resizing metrics
+    function resize() {
+        canvas.width = container.clientWidth * window.devicePixelRatio;
+        canvas.height = 380 * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
-    camera.lookAt(0, 1.2, 0);
+    window.addEventListener('resize', resize);
+    resize();
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, 380);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    container.appendChild(renderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
-    const spotlight = new THREE.SpotLight(0xfff3e0, 1.2, 30, Math.PI / 4, 0.5, 1);
-    spotlight.position.set(0, 12, 4);
-    spotlight.castShadow = true;
-    scene.add(spotlight);
-
-    const tableGeo = new THREE.CylinderGeometry(8, 8.5, 1, 32);
-    const tableMat = new THREE.MeshStandardMaterial({ color: 0x1f222a, roughness: 0.2, metalness: 0.7 });
-    const table = new THREE.Mesh(tableGeo, tableMat);
-    table.position.y = -0.5;
-    table.receiveShadow = true;
-    scene.add(table);
-
+    // Constructing game objects
     const cups = [];
-    const spacing = container.clientWidth < 480 ? 1.4 : 1.9;
-    const startX = -((numCups - 1) * spacing) / 2;
+    const width = container.clientWidth;
+    const spacing = width < 480 ? (width * 0.8) / numCups : 80;
+    const startX = (width / 2) - (((numCups - 1) * spacing) / 2);
 
-    const ballGeo = new THREE.SphereGeometry(0.25, 32, 32);
-    const ballMat = new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.1, metalness: 0.3 });
-    const ball = new THREE.Mesh(ballGeo, ballMat);
-    ball.castShadow = true;
-    ball.position.set(startX + (winningCup * spacing), 0.25, 0);
-    scene.add(ball);
-
-    const cupGroup = new THREE.Group();
     for (let i = 0; i < numCups; i++) {
-        const cupContainer = new THREE.Group();
-        cupContainer.position.set(startX + (i * spacing), 0, 0);
-
-        const bodyGeo = new THREE.CylinderGeometry(0.5, 0.65, 1.5, 32);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffa726, roughness: 0.3, metalness: 0.4 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 0.75;
-        body.castShadow = true;
-        cupContainer.add(body);
-
-        cupContainer.userData = { index: i, targetX: cupContainer.position.x };
-        cups.push(cupContainer);
-        cupGroup.add(cupContainer);
+        cups.push({
+            id: i,
+            x: startX + (i * spacing),
+            y: 220,
+            targetX: startX + (i * spacing),
+            liftY: 0
+        });
     }
-    scene.add(cupGroup);
 
-    let gameState = isMenuMode ? "static_preview" : "reveal_ball"; 
+    let ballX = cups[winningCup].x;
+    let ballVisible = !isMenuMode;
+    let gameState = isMenuMode ? "static_preview" : "reveal_ball";
+
     let stateTimer = 0;
     let shufflePhase = 0;
-    const maxShuffleCycles = 6 + (speedModifier * 2);
-    let swapLeftIdx = 0, swapRightIdx = 0;
-    let swapProgress = 0;
+    const maxShuffleCycles = 8 + (speedModifier * 2);
+    let swapA = 0, swapB = 0, swapProgress = 0;
 
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    function handleSelection(clientX, clientY) {
-        if (gameState !== "pick") return;
-
-        const rect = renderer.domElement.getBoundingClientRect();
-        mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(cupGroup.children, true);
-
-        if (intersects.length > 0) {
-            let hitCup = intersects.object;
-            while (hitCup.parent && hitCup.parent !== cupGroup) {
-                hitCup = hitCup.parent;
-            }
-            
-            gameState = "resolve_choice";
-            const chosenIndex = hitCup.userData.index;
-            
-            let liftTime = 0;
-            function liftAnim() {
-                liftTime += 0.05;
-                hitCup.position.y = Math.sin(liftTime * Math.PI) * 1.5;
-                if (chosenIndex !== winningCup) {
-                    cups.forEach(c => {
-                        if(c.userData.index === winningCup) c.position.y = Math.sin(liftTime * Math.PI) * 1.5;
-                    });
-                }
-                
-                if (liftTime >= 1) {
-                    // SECURE MESSAGE CHANNEL WAY: Sends score payload back to parent without changing URL frames
-                    window.parent.postMessage({
-                        type: 'CUP_GAME_CHOICE',
-                        chosen_cup: chosenIndex,
-                        winning_cup: winningCup
-                    }, '*');
-                }} else {
-                    requestAnimationFrame(liftAnim);
-                }
-            }
-            liftAnim();
-        }
-    }
-
-    container.addEventListener('click', (e) => handleSelection(e.clientX, e.clientY));
-    container.addEventListener('touchstart', (e) => {
-        if(e.touches.length > 0) handleSelection(e.touches[0].clientX, e.touches[0].clientY);
-    });
-
-    function setupNextSwap() {
-        swapLeftIdx = Math.floor(Math.random() * numCups);
+    function startNextSwap() {
+        swapA = Math.floor(Math.random() * numCups);
         do {
-            swapRightIdx = Math.floor(Math.random() * numCups);
-        } while (swapLeftIdx === swapRightIdx);
+            swapB = Math.floor(Math.random() * numCups);
+        } while (swapA === swapB);
         swapProgress = 0;
     }
 
-    function animate() {
-        requestAnimationFrame(animate);
-        stateTimer += 0.01;
+    // Touch and mouse intercept listener actions
+    function processTouch(clientX, clientY) {
+        if (gameState !== "pick") return;
+        const rect = canvas.getBoundingClientRect();
+        const clickX = clientX - rect.left;
+        const clickY = clientY - rect.top;
 
+        cups.forEach(cup => {
+            // Distance checking logic
+            const dx = clickX - cup.x;
+            const dy = clickY - cup.y;
+            if (Math.abs(dx) < 35 && dy > -60 && dy < 10) {
+                gameState = "resolve_choice";
+                let liftProgress = 0;
+                
+                function liftTransition() {
+                    liftProgress += 0.05;
+                    cup.liftY = Math.sin(liftProgress * Math.PI) * 70;
+                    if (cup.id !== winningCup) {
+                        cups[winningCup].liftY = Math.sin(liftProgress * Math.PI) * 70;
+                    }
+                    ballVisible = true;
+
+                    if (liftProgress >= 1) {
+                        window.parent.postMessage({
+                            type: 'CUP_GAME_CHOICE',
+                            chosen_cup: cup.id,
+                            winning_cup: winningCup
+                        }, '*');
+                    } else {
+                        requestAnimationFrame(liftTransition);
+                    }
+                }
+                liftTransition();
+            }
+        });
+    }
+
+    canvas.addEventListener('click', (e) => processTouch(e.clientX, e.clientY));
+    canvas.addEventListener('touchstart', (e) => {
+        if(e.touches.length > 0) processTouch(e.touches[0].clientX, e.touches[0].clientY);
+    });
+
+    if (!isMenuMode) startNextSwap();
+
+    // Graphic render animation engine loop pipeline
+    function gameLoop() {
+        stateTimer += 0.016;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Realistic tabletop background styling 
+        const grd = ctx.createLinearGradient(0, 180, 0, 300);
+        grd.addColorStop(0, '#1a1d24');
+        grd.addColorStop(1, '#2c313d');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.ellipse(container.clientWidth / 2, 230, container.clientWidth * 0.45, 60, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Game engine lifecycle loop routing
         if (gameState === "static_preview") {
             statusOverlay.innerText = "Select Difficulty Above To Play!";
-            cupGroup.rotation.y += 0.005;
-            ball.visible = false;
-        }
+            ballVisible = false;
+        } 
         else if (gameState === "reveal_ball") {
-            ball.visible = true;
-            statusOverlay.innerText = "👀 Remember the ball location...";
-            cups.forEach(c => {
-                if (c.userData.index === winningCup) {
-                    c.position.y = THREE.MathUtils.lerp(c.position.y, 1.6, 0.12);
-                }
-            });
-            if (stateTimer > 1.5) {
+            statusOverlay.innerText = "👀 Watch carefully! Memorize the ball...";
+            cups[winningCup].liftY = Math.min(cups[winningCup].liftY + 4, 65);
+            if (stateTimer > 1.8) {
                 gameState = "drop_cups";
                 stateTimer = 0;
             }
         } 
         else if (gameState === "drop_cups") {
             statusOverlay.innerText = "Hiding ball...";
-            cups.forEach(c => {
-                c.position.y = THREE.MathUtils.lerp(c.position.y, 0, 0.18);
-            });
+            cups[winningCup].liftY = Math.max(cups[winningCup].liftY - 5, 0);
             if (stateTimer > 0.6) {
                 gameState = "shuffle";
-                setupNextSwap();
+                ballVisible = false;
+                startNextSwap();
             }
         } 
         else if (gameState === "shuffle") {
             statusOverlay.innerText = "⚡ Shuffling cups... Keep tracking!";
-            swapProgress += 0.045 * speedModifier;
+            swapProgress += 0.04 * speedModifier;
 
-            const cupA = cups[swapLeftIdx];
-            const cupB = cups[swapRightIdx];
+            const cA = cups[swapA];
+            const cB = cups[swapB];
 
-            const xA = cupA.userData.targetX;
-            const xB = cupB.userData.targetX;
+            const midX = (cA.targetX + cB.targetX) / 2;
+            const dist = Math.abs(cA.targetX - cB.targetX) / 2;
 
-            const midX = (xA + xB) / 2;
-            const radius = Math.abs(xA - xB) / 2;
-
-            cupA.position.x = midX + radius * Math.cos(Math.PI + swapProgress * Math.PI);
-            cupA.position.z = radius * Math.sin(swapProgress * Math.PI);
-
-            cupB.position.x = midX + radius * Math.cos(swapProgress * Math.PI);
-            cupB.position.z = -radius * Math.sin(swapProgress * Math.PI);
+            // Perfect dynamic arc paths using trigonometric formatting
+            cA.x = midX + dist * Math.cos(Math.PI + swapProgress * Math.PI);
+            cB.x = midX + dist * Math.cos(swapProgress * Math.PI);
 
             if (swapProgress >= 1) {
-                cupA.position.x = xB; cupA.position.z = 0;
-                cupB.position.x = xA; cupB.position.z = 0;
-                cupA.userData.targetX = xB;
-                cupB.userData.targetX = xA;
-
+                cA.x = cA.targetX = cB.targetX;
+                cB.x = cB.targetX = midX + dist;
+                
                 shufflePhase++;
                 if (shufflePhase >= maxShuffleCycles) {
                     gameState = "pick";
-                    cups.forEach(c => {
-                        if (c.userData.index === winningCup) ball.position.x = c.position.x;
-                    });
+                    ballX = cups.find(c => c.id === winningCup).x;
                 } else {
-                    setupNextSwap();
+                    startNextSwap();
                 }
             }
         } 
@@ -303,16 +259,54 @@ THREE_JS_HTML = """
             statusOverlay.innerText = "👉 Tap on the cup hiding the ball!";
         }
 
-        renderer.render(scene, camera);
-    }
+        // Draw Ball Object
+        if (ballVisible) {
+            ctx.beginPath();
+            ctx.arc(ballX, 225, 12, 0, 2 * Math.PI);
+            const ballGrd = ctx.createRadialGradient(ballX - 4, 221, 2, ballX, 225, 12);
+            ballGrd.addColorStop(0, '#ff7675');
+            ballGrd.addColorStop(1, '#d63031');
+            ctx.fillStyle = ballGrd;
+            ctx.fill();
+            ctx.closePath();
+        }
 
-    animate();
+        # Draw Cups Objects
+        cups.forEach(cup => {
+            const cx = cup.x;
+            const cy = cup.y - cup.liftY;
+
+            ctx.beginPath();
+            ctx.moveTo(cx - 24, cy);
+            ctx.lineTo(cx - 18, cy - 55);
+            ctx.lineTo(cx + 18, cy - 55);
+            ctx.lineTo(cx + 24, cy);
+            ctx.closePath();
+
+            // High performance depth gradient shading
+            const cupGrd = ctx.createLinearGradient(cx - 24, 0, cx + 24, 0);
+            cupGrd.addColorStop(0, '#e67e22');
+            cupGrd.addColorStop(0.3, '#f39c12');
+            cupGrd.addColorStop(0.7, '#f1c40f');
+            cupGrd.addColorStop(1, '#d35400');
+            ctx.fillStyle = cupGrd;
+            ctx.fill();
+
+            // Draw cup rim outline
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 24, 6, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = '#d35400';
+            ctx.fill();
+        });
+
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
 })();
 </script>
 """
 
-# --- BACKEND EVENT SCOPE RECEIVER ---
-# Listen for incoming HTML5 messages securely without page resets
+# --- BACKEND LINK RECEIVER ---
 receiver_script = """
 <script>
 window.addEventListener('message', function(event) {
@@ -326,6 +320,5 @@ window.addEventListener('message', function(event) {
 </script>
 """
 
-# Render graphics layout downstream securely
-st.components.v1.html(THREE_JS_HTML + receiver_script, height=395, scrolling=False)
+st.components.v1.html(CANVAS_GAME_HTML + receiver_script, height=395, scrolling=False)
 st.markdown("<p style='text-align: center; color: gray; font-size: 11px;'>Optimized for mobile touchscreens and desktop viewports.</p>", unsafe_allow_html=True)
