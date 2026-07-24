@@ -1,7 +1,8 @@
 import streamlit as st
 import random
+import json
 
-# --- MULTI-PLATFORM RESPONSIVE PAGE ARCHITECTURE ---
+# --- SECURE RESPONSIVE PAGE ARCHITECTURE ---
 st.set_page_config(
     page_title="Realistic 3D Cup Shuffle",
     page_icon="🔮",
@@ -9,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Hide Streamlit structural clutter to maximize display area
+# Clean up Streamlit layout framing for a unified experience
 st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -26,41 +27,22 @@ if "streak" not in st.session_state:
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
 if "stage" not in st.session_state:
-    st.session_state.stage = "MENU"  # Lifecycle Stages: MENU, GAME
+    st.session_state.stage = "MENU"
 if "difficulty" not in st.session_state:
     st.session_state.difficulty = "Easy"
-if "game_id" not in st.session_state:
-    st.session_state.game_id = 0
 if "winning_cup" not in st.session_state:
     st.session_state.winning_cup = 0
 
-# DIFFICULTY BALANCING PARAMETERS
+# CONFIGURATION BALANCING METRICS
 DIFFICULTY_METRICS = {
     "Easy": {"cups": 3, "speed": 1.6},
     "Medium": {"cups": 4, "speed": 2.3},
     "Hard": {"cups": 5, "speed": 3.1}
 }
 
-# --- PROCESS INCOMING USER TAP ACTIONS ---
-query_params = st.query_params
-if "chosen_cup" in query_params:
-    chosen = int(query_params["chosen_cup"])
-    winning = int(query_params.get("winning_cup", 0))
-    st.query_params.clear()
-    
-    if chosen == winning:
-        st.session_state.score += 1
-        st.session_state.streak += 1
-        st.session_state.last_result = f"🎉 Correct! The ball was under Cup {chosen + 1}."
-    else:
-        st.session_state.streak = 0
-        st.session_state.last_result = f"❌ Wrong! The ball was under Cup {winning + 1}."
-    st.session_state.stage = "MENU"
-
-# --- RENDER MAIN INTERACTIVE GAME WINDOW ---
+# --- HEADER INTERACTIVE PANEL ---
 st.markdown("<h2 style='text-align: center; margin-bottom: 0px;'>🔮 3D Real Shuffle</h2>", unsafe_allow_html=True)
 
-# Multi-Column Scoreboard
 col_sc1, col_sc2 = st.columns(2)
 with col_sc1:
     st.metric("Total Score", st.session_state.score)
@@ -70,17 +52,15 @@ with col_sc2:
 if st.session_state.last_result:
     st.info(st.session_state.last_result)
 
-# --- HANDLE GRAPHICS LIFECYCLE ROUTING ---
+# --- ENGINE STATE CONTROLLER ---
 if st.session_state.stage == "MENU":
     st.markdown("<p style='text-align: center;'>Choose difficulty below to start playing!</p>", unsafe_allow_html=True)
     
-    # Inline Difficulty Grid Layout
     btn_col1, btn_col2, btn_col3 = st.columns(3)
     with btn_col1:
         if st.button("🟢 Easy", use_container_width=True):
             st.session_state.difficulty = "Easy"
             st.session_state.winning_cup = random.randint(0, DIFFICULTY_METRICS["Easy"]["cups"] - 1)
-            st.session_state.game_id += 1
             st.session_state.last_result = None
             st.session_state.stage = "GAME"
             st.rerun()
@@ -88,7 +68,6 @@ if st.session_state.stage == "MENU":
         if st.button("🟡 Medium", use_container_width=True):
             st.session_state.difficulty = "Medium"
             st.session_state.winning_cup = random.randint(0, DIFFICULTY_METRICS["Medium"]["cups"] - 1)
-            st.session_state.game_id += 1
             st.session_state.last_result = None
             st.session_state.stage = "GAME"
             st.rerun()
@@ -96,21 +75,20 @@ if st.session_state.stage == "MENU":
         if st.button("🔴 Hard", use_container_width=True):
             st.session_state.difficulty = "Hard"
             st.session_state.winning_cup = random.randint(0, DIFFICULTY_METRICS["Hard"]["cups"] - 1)
-            st.session_state.game_id += 1
             st.session_state.last_result = None
             st.session_state.stage = "GAME"
             st.rerun()
 
-# Fetch active configuration stats
+# Fetch parameters based on active choice state
 metrics = DIFFICULTY_METRICS[st.session_state.difficulty]
 num_cups = metrics["cups"]
 shuffle_speed = metrics["speed"]
 is_menu_mode_js = "true" if st.session_state.stage == "MENU" else "false"
-# --- FULLY EMBEDDED RESIZEABLE THREE.JS RENDERING ENGINE ---
+# --- EMBEDDED HIGH-SECURITY 3D ENGINE MODULE ---
 THREE_JS_HTML = """
 <div id="canvas-container" style="width: 100%; height: 380px; background: #12131a; border-radius: 16px; overflow: hidden; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
     <div id="status-overlay" style="position: absolute; top: 12px; left: 12px; color: #fff; font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 10;">
-        Loading game...
+        Initializing Canvas...
     </div>
 </div>
 
@@ -120,7 +98,6 @@ THREE_JS_HTML = """
     const container = document.getElementById('canvas-container');
     const statusOverlay = document.getElementById('status-overlay');
     
-    // Core parameters injected natively from Python variables to ensure load timing
     const numCups = """ + str(num_cups) + """;
     const winningCup = """ + str(st.session_state.winning_cup) + """;
     const speedModifier = """ + str(shuffle_speed) + """;
@@ -227,8 +204,13 @@ THREE_JS_HTML = """
                 }
                 
                 if (liftTime >= 1) {
-                    window.parent.location.search = "?chosen_cup=" + chosenIndex + "&winning_cup=" + winningCup;
-                } else {
+                    // SECURE MESSAGE CHANNEL WAY: Sends score payload back to parent without changing URL frames
+                    window.parent.postMessage({
+                        type: 'CUP_GAME_CHOICE',
+                        chosen_cup: chosenIndex,
+                        winning_cup: winningCup
+                    }, '*');
+                }} else {
                     requestAnimationFrame(liftAnim);
                 }
             }
@@ -255,13 +237,12 @@ THREE_JS_HTML = """
 
         if (gameState === "static_preview") {
             statusOverlay.innerText = "Select Difficulty Above To Play!";
-            // Make preview cups spin slowly to prove WebGL engine is functional
             cupGroup.rotation.y += 0.005;
             ball.visible = false;
         }
         else if (gameState === "reveal_ball") {
             ball.visible = true;
-            statusOverlay.innerText = "👀 Watch carefully! Memorize the ball...";
+            statusOverlay.innerText = "👀 Remember the ball location...";
             cups.forEach(c => {
                 if (c.userData.index === winningCup) {
                     c.position.y = THREE.MathUtils.lerp(c.position.y, 1.6, 0.12);
@@ -330,6 +311,21 @@ THREE_JS_HTML = """
 </script>
 """
 
-# Render combined string output straight downstream
-st.components.v1.html(THREE_JS_HTML, height=395, scrolling=False)
+# --- BACKEND EVENT SCOPE RECEIVER ---
+# Listen for incoming HTML5 messages securely without page resets
+receiver_script = """
+<script>
+window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'CUP_GAME_CHOICE') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('chosen_cup', event.data.chosen_cup);
+        url.searchParams.set('winning_cup', event.data.winning_cup);
+        window.location.href = url.toString();
+    }
+});
+</script>
+"""
+
+# Render graphics layout downstream securely
+st.components.v1.html(THREE_JS_HTML + receiver_script, height=395, scrolling=False)
 st.markdown("<p style='text-align: center; color: gray; font-size: 11px;'>Optimized for mobile touchscreens and desktop viewports.</p>", unsafe_allow_html=True)
