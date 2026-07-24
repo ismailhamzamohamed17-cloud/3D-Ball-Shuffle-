@@ -19,7 +19,7 @@ if "streak" not in st.session_state:
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
 
-# --- DIFFICULTY METRICS CONFIGURATION ---
+# --- DIFFICULTY CONFIGURATION ---
 DIFFICULTY_CONFIG = {
     "Easy": {"cups": 3, "speed": 1.5},
     "Medium": {"cups": 4, "speed": 2.2},
@@ -27,9 +27,9 @@ DIFFICULTY_CONFIG = {
 }
 
 st.title("🔮 3D Realistic Cup Shuffle")
-st.write("Track the ball in a real-time WebGL 3D environment. Higher difficulties increase cup counts and shuffle velocities.")
+st.write("Track the ball in real-time WebGL. Adjust settings to scale difficulty levels.")
 
-# --- CONFIGURATION SIDEBAR ---
+# --- SIDEBAR SETTINGS ---
 st.sidebar.header("🎮 Game Settings")
 difficulty = st.sidebar.selectbox(
     "Select Difficulty Level:",
@@ -40,13 +40,13 @@ config = DIFFICULTY_CONFIG[difficulty]
 num_cups = config["cups"]
 shuffle_speed = config["speed"]
 
-# Reset trigger button
+# Start match trigger
 if st.button("🔀 Start New 3D Shuffle", type="primary", use_container_width=True):
     st.session_state.game_id += 1
     st.session_state.winning_cup = random.randint(0, num_cups - 1)
     st.session_state.last_result = None
 
-# --- PROCESS JAVASCRIPT RESPONSES ---
+# --- INTERCEPT INCOMING SCORE MESSAGES ---
 query_params = st.query_params
 if "chosen_cup" in query_params:
     chosen = int(query_params["chosen_cup"])
@@ -56,7 +56,7 @@ if "chosen_cup" in query_params:
     if chosen == winning:
         st.session_state.score += 1
         st.session_state.streak += 1
-        st.session_state.last_result = f"🎉 Correct! You accurately tracked the ball under Cup {chosen + 1}."
+        st.session_state.last_result = f"🎉 Correct! The ball was under Cup {chosen + 1}."
     else:
         st.session_state.streak = 0
         st.session_state.last_result = f"❌ Wrong! The ball was hiding under Cup {winning + 1}."
@@ -74,15 +74,20 @@ if st.session_state.last_result:
 if "winning_cup" not in st.session_state:
     st.session_state.winning_cup = random.randint(0, num_cups - 1)
 
-# --- INJECT AND RENDER THREE.JS GRAPHICS ---
-compiled_html = THREE_JS_HTML.format(
-    num_cups=num_cups,
-    winning_cup=st.session_state.winning_cup,
-    shuffle_speed=shuffle_speed,
-    game_id=st.session_state.game_id
-)
+# --- INJECT AND RUN WEBGL LAYOUT ---
+# Dynamically pass configurations downstream via safe script header injections
+config_injection = f"""
+<script>
+    window.STREAMLIT_GAME_CONFIG = {{
+        numCups: {num_cups},
+        winningCup: {st.session_state.winning_cup},
+        shuffleSpeed: {shuffle_speed},
+        gameId: {st.session_state.game_id}
+    }};
+</script>
+"""
 
-st.components.v1.html(compiled_html, height=470, scrolling=False)
+st.components.v1.html(config_injection + THREE_JS_HTML, height=470, scrolling=False)
 st.markdown("---")
 st.caption("Powered by Streamlit engine and Three.js real-time WebGL rendering wrappers.")
 THREE_JS_HTML = """
@@ -94,17 +99,16 @@ THREE_JS_HTML = """
 
 <script src="https://cloudflare.com"></script>
 <script>
-(function() {{
+(function() {
     const container = document.getElementById('canvas-container');
     const statusOverlay = document.getElementById('status-overlay');
     
-    // Core Parameters injected from Streamlit backend
-    const numCups = {num_cups};
-    const winningCup = {winning_cup};
-    const speedModifier = {shuffle_speed};
-    const gameId = {game_id};
+    // Read variables injected from Python context safely
+    const config = window.STREAMLIT_GAME_CONFIG || { numCups: 3, winningCup: 0, shuffleSpeed: 1.5, gameId: 0 };
+    const numCups = config.numCups;
+    const winningCup = config.winningCup;
+    const speedModifier = config.shuffleSpeed;
 
-    // Setup Scene, Camera, WebGL Renderer
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a24);
     scene.fog = new THREE.FogExp2(0x1a1a24, 0.05);
@@ -113,77 +117,56 @@ THREE_JS_HTML = """
     camera.position.set(0, 8, 12);
     camera.lookAt(0, 1.5, 0);
 
-    const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, 450);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // Realistic Lighting Architecture
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xffeebb, 0.8);
     dirLight.position.set(5, 15, 5);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
     scene.add(dirLight);
 
-    const floorLight = new THREE.PointLight(0x3366ff, 0.5, 15);
-    floorLight.position.set(0, 4, 0);
-    scene.add(floorLight);
-
-    // Realistic Metallic Floor Table Mesh
     const floorGeo = new THREE.PlaneGeometry(50, 50);
-    const floorMat = new THREE.MeshStandardMaterial({{ 
-        color: 0x22252c, 
-        roughness: 0.2, 
-        metalness: 0.8 
-    }});
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x22252c, roughness: 0.2, metalness: 0.8 });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Instantiating Cups and Ball Objects
     const cups = [];
     const spacing = 2.2;
     const startX = -((numCups - 1) * spacing) / 2;
 
-    // Create Realistic Textured Ball
     const ballGeo = new THREE.SphereGeometry(0.3, 32, 32);
-    const ballMat = new THREE.MeshStandardMaterial({{ color: 0xe63946, roughness: 0.1, metalness: 0.1 }});
+    const ballMat = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.1, metalness: 0.1 });
     const ball = new THREE.Mesh(ballGeo, ballMat);
     ball.castShadow = true;
     ball.position.set(startX + (winningCup * spacing), 0.3, 0);
     scene.add(ball);
 
-    // Create Realistic Wood/Copper Cylindrical Cups
     const cupGroup = new THREE.Group();
-    for (let i = 0; i < numCups; i++) {{
+    for (let i = 0; i < numCups; i++) {
         const cupContainer = new THREE.Group();
         cupContainer.position.set(startX + (i * spacing), 0, 0);
 
         const bodyGeo = new THREE.CylinderGeometry(0.6, 0.8, 1.8, 32);
-        const bodyMat = new THREE.MeshStandardMaterial({{ 
-            color: 0xd4a373, 
-            roughness: 0.4, 
-            metalness: 0.3
-        }});
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.4, metalness: 0.3 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         body.position.y = 0.9;
         body.castShadow = true;
-        body.receiveShadow = true;
         cupContainer.add(body);
 
-        cupContainer.userData = {{ index: i, targetX: cupContainer.position.x }};
+        cupContainer.userData = { index: i, targetX: cupContainer.position.x };
         cups.push(cupContainer);
         cupGroup.add(cupContainer);
-    }}
+    }
     scene.add(cupGroup);
 
-    // Animation States and Variables
     let gameState = "reveal_ball"; 
     let stateTimer = 0;
     let shufflePhase = 0;
@@ -191,11 +174,10 @@ THREE_JS_HTML = """
     let swapLeftIdx = 0, swapRightIdx = 0;
     let swapProgress = 0;
 
-    // Raycasting for User Interaction Clicking
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    container.addEventListener('click', function(event) {{
+    container.addEventListener('click', function(event) {
         if (gameState !== "pick") return;
 
         const rect = renderer.domElement.getBoundingClientRect();
@@ -205,70 +187,70 @@ THREE_JS_HTML = """
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(cupGroup.children, true);
 
-        if (intersects.length > 0) {{
+        if (intersects.length > 0) {
             let hitCup = intersects.object;
-            while (hitCup.parent && hitCup.parent !== cupGroup) {{
+            while (hitCup.parent && hitCup.parent !== cupGroup) {
                 hitCup = hitCup.parent;
-            }}
+            }
             
             gameState = "resolve_choice";
             const chosenIndex = hitCup.userData.index;
             
             let liftTime = 0;
-            function liftAnim() {{
+            function liftAnim() {
                 liftTime += 0.05;
                 hitCup.position.y = Math.sin(liftTime * Math.PI) * 1.5;
-                if (chosenIndex !== winningCup) {{
-                    cups.forEach(c => {{
+                if (chosenIndex !== winningCup) {
+                    cups.forEach(c => {
                         if(c.userData.index === winningCup) c.position.y = Math.sin(liftTime * Math.PI) * 1.5;
-                    }});
-                }}
+                    });
+                }
                 
-                if (liftTime >= 1) {{
+                if (liftTime >= 1) {
                     window.parent.location.search = "?chosen_cup=" + chosenIndex + "&winning_cup=" + winningCup;
-                }} else {{
+                } else {
                     requestAnimationFrame(liftAnim);
-                }}
-            }}
+                }
+            }
             liftAnim();
-        }}
-    }});
+        }
+    });
 
-    function setupNextSwap() {{
+    function setupNextSwap() {
         swapLeftIdx = Math.floor(Math.random() * numCups);
-        do {{
+        do {
             swapRightIdx = Math.floor(Math.random() * numCups);
-        }} while (swapLeftIdx === swapRightIdx);
+        } while (swapLeftIdx === swapRightIdx);
         swapProgress = 0;
-    }}
+    }
 
-    function animate() {{
+    function animate() {
         requestAnimationFrame(animate);
         stateTimer += 0.01;
 
-        if (gameState === "reveal_ball") {{
+        if (gameState === "reveal_ball") {
             statusOverlay.innerText = "Remember the ball location...";
-            cups.forEach(c => {{
-                if (c.userData.index === winningCup) {{
+            cups.forEach(c => {
+                if (c.userData.index === winningCup) {
                     c.position.y = THREE.MathUtils.lerp(c.position.y, 1.8, 0.1);
-                }}
-            }});
-            if (stateTimer > 1.8) {{
+                }
+            });
+            if (stateTimer > 1.8) {
                 gameState = "drop_cups";
                 stateTimer = 0;
-            }}
-        }} 
-        else if (gameState === "drop_cups") {{
+            }
+        } 
+        else if (gameState === "drop_cups") {
             statusOverlay.innerText = "Hiding ball...";
-            cups.forEach(c => {{
+            cups.forEach(c => {
                 c.position.y = THREE.MathUtils.lerp(c.position.y, 0, 0.15);
-            }});
-            if (stateTimer > 0.8) {{
+            });
+            if (stateTimer > 0.8) {
                 gameState = "shuffle";
                 setupNextSwap();
-            }}
-        }} 
-        else if (gameState === "shuffle") {{
+            }
+        } 
+        else if (gameState === "shuffle") {
             statusOverlay.innerText = "Shuffling dynamically... Watch closely!";
             swapProgress += 0.04 * speedModifier;
 
@@ -287,7 +269,7 @@ THREE_JS_HTML = """
             cupB.position.x = midX + radius * Math.cos(swapProgress * Math.PI);
             cupB.position.z = -radius * Math.sin(swapProgress * Math.PI);
 
-            if (swapProgress >= 1) {{
+            if (swapProgress >= 1) {
                 cupA.position.x = xB;
                 cupA.position.z = 0;
                 cupB.position.x = xA;
@@ -297,27 +279,27 @@ THREE_JS_HTML = """
                 cupB.userData.targetX = xA;
 
                 shufflePhase++;
-                if (shufflePhase >= maxShuffleCycles) {{
+                if (shufflePhase >= maxShuffleCycles) {
                     gameState = "pick";
-                    cups.forEach(c => {{
-                        if (c.userData.index === winningCup) {{
+                    cups.forEach(c => {
+                        if (c.userData.index === winningCup) {
                             ball.position.x = c.position.x;
-                        }}
-                    }});
-                }} else {{
+                        }
+                    });
+                } else {
                     setupNextSwap();
-                }}
-            }}
-        }} 
-        else if (gameState === "pick") {{
+                }
+            }
+        } 
+        else if (gameState === "pick") {
             statusOverlay.innerText = "Click on the 3D Cup you think holds the ball!";
-        }}
+        }
 
         renderer.render(scene, camera);
-    }}
+    }
 
     animate();
 
-}})();
+})();
 </script>
 """
