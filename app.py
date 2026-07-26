@@ -289,8 +289,45 @@ game_html = r"""
         box-shadow: 0 0 6px rgba(111,227,255,0.8);
     }
 
-    #hud-menu-btn.hidden-el {
-        display: none;
+    .hidden-el {
+        display: none !important;
+    }
+
+    #top-right-hud {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 40;
+    }
+
+    #mute-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: rgba(8,12,20,0.65);
+        border: 1.5px solid #2c5570;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        box-shadow: 0 0 14px rgba(33,224,255,0.25);
+        backdrop-filter: blur(4px);
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    #mute-btn:hover {
+        border-color: #52e8ff;
+        box-shadow: 0 0 20px rgba(82,232,255,0.55);
+    }
+
+    #mute-btn.muted {
+        color: #ff6a6a;
+        border-color: #6a2c33;
     }
 
     #control-pane {
@@ -397,9 +434,6 @@ game_html = r"""
     }
 
     #score-pill {
-        position: absolute;
-        top: 16px;
-        right: 16px;
         padding: 9px 18px;
         border-radius: 20px;
         background: rgba(8,12,20,0.65);
@@ -492,14 +526,17 @@ game_html = r"""
         <span></span><span></span><span></span>
     </div>
 
-    <div id="score-pill" class="hidden-el">ROUND 0 &nbsp;|&nbsp; WINS 0</div>
+    <div id="top-right-hud" class="hidden-el">
+        <div id="mute-btn" title="Toggle Music">&#128266;</div>
+        <div id="score-pill">ROUND 0 &nbsp;|&nbsp; WINS 0</div>
+    </div>
 
     <div id="hud-message"></div>
 
     <div id="pane-backdrop"></div>
     <div id="control-pane">
         <div class="control-pane-title">SYSTEM CONTROL CONSOLE</div>
-        <button class="control-link" id="btn-return-chassis">&#8592; RETURN TO CHASSIS CORE</button>
+        <button class="control-link" id="btn-return-chassis">&#8592; RETURN TO MENU</button>
         <button class="control-link" id="btn-recalibrate">&#9881; RE-CALIBRATE SETTINGS</button>
         <div class="control-status" id="pane-status-text">DIFFICULTY: EASY<br>CUPS: 3<br>STATE: IDLE</div>
     </div>
@@ -555,6 +592,8 @@ game_html = r"""
     var btnRecalibrate = document.getElementById("btn-recalibrate");
     var paneStatusText = document.getElementById("pane-status-text");
     var hudMessage = document.getElementById("hud-message");
+    var topRightHud = document.getElementById("top-right-hud");
+    var muteBtn = document.getElementById("mute-btn");
     var scorePill = document.getElementById("score-pill");
     var resultOverlay = document.getElementById("result-overlay");
     var resultTitle = document.getElementById("result-title");
