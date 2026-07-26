@@ -1072,7 +1072,11 @@ game_html = r"""
         selectedGuessSlot: -1,
         revealStartTime: 0,
         revealDone: false,
-        idleBobPhase: 0
+        idleBobPhase: 0,
+        splashParticles: [],
+        bgCache: null,
+        bgCacheW: 0,
+        bgCacheH: 0
     };
 
     var rafId = null;
@@ -1131,77 +1135,245 @@ game_html = r"""
     });
 
     /* ======================================================
-       DRAWING: BACKGROUND (LUXURY CASINO FELT + WOOD FRAME)
+       DRAWING: BACKGROUND (SUNNY RESORT BEACH SCENE)
+       Static elements (sky, sun, clouds, ocean, sand, palms)
+       are rendered once into an offscreen cache whenever the
+       canvas resizes, then simply blitted each frame. Only a
+       cheap animated water shimmer is redrawn live.
        ====================================================== */
+    function buildBackgroundCache() {
+        var w = STATE.width;
+        var h = STATE.height;
+        if (w <= 0 || h <= 0) return;
+
+        var cache = document.createElement("canvas");
+        cache.width = Math.floor(w * STATE.dpr);
+        cache.height = Math.floor(h * STATE.dpr);
+        var bctx = cache.getContext("2d");
+        bctx.setTransform(STATE.dpr, 0, 0, STATE.dpr, 0, 0);
+
+        var horizonY = h * 0.34;
+
+        var skyGrad = bctx.createLinearGradient(0, 0, 0, horizonY);
+        skyGrad.addColorStop(0, "#3fa9f5");
+        skyGrad.addColorStop(0.45, "#7ecbfa");
+        skyGrad.addColorStop(0.8, "#bfe8fb");
+        skyGrad.addColorStop(1, "#fdf3d0");
+        bctx.fillStyle = skyGrad;
+        bctx.fillRect(0, 0, w, horizonY);
+
+        var sunX = w * 0.78;
+        var sunY = h * 0.14;
+        var sunGlow = bctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, w * 0.28);
+        sunGlow.addColorStop(0, "rgba(255,250,210,0.95)");
+        sunGlow.addColorStop(0.25, "rgba(255,235,150,0.55)");
+        sunGlow.addColorStop(1, "rgba(255,235,150,0)");
+        bctx.fillStyle = sunGlow;
+        bctx.fillRect(0, 0, w, horizonY);
+
+        bctx.beginPath();
+        bctx.arc(sunX, sunY, Math.max(20, w * 0.035), 0, Math.PI * 2);
+        bctx.fillStyle = "#fffbe8";
+        bctx.fill();
+
+        function drawCloud(cx, cy, scale) {
+            bctx.save();
+            bctx.globalAlpha = 0.85;
+            bctx.fillStyle = "#ffffff";
+            var puffs = [
+                [0, 0, 1.0], [0.55, 0.08, 0.75], [-0.5, 0.1, 0.7],
+                [0.2, -0.18, 0.6], [-0.2, -0.14, 0.55]
+            ];
+            for (var pI = 0; pI < puffs.length; pI++) {
+                var p = puffs[pI];
+                bctx.beginPath();
+                bctx.ellipse(
+                    cx + p[0] * 70 * scale, cy + p[1] * 70 * scale,
+                    46 * scale * p[2], 30 * scale * p[2], 0, 0, Math.PI * 2
+                );
+                bctx.fill();
+            }
+            bctx.restore();
+        }
+        drawCloud(w * 0.18, h * 0.1, 1.1);
+        drawCloud(w * 0.42, h * 0.06, 0.75);
+        drawCloud(w * 0.62, h * 0.17, 0.6);
+
+        var oceanGrad = bctx.createLinearGradient(0, horizonY, 0, horizonY + h * 0.16);
+        oceanGrad.addColorStop(0, "#1a95c9");
+        oceanGrad.addColorStop(0.5, "#1476a8");
+        oceanGrad.addColorStop(1, "#0d5a86");
+        bctx.fillStyle = oceanGrad;
+        bctx.fillRect(0, horizonY, w, h * 0.16);
+
+        bctx.save();
+        bctx.globalAlpha = 0.18;
+        bctx.strokeStyle = "#ffffff";
+        bctx.lineWidth = 1.5;
+        for (var wv = 0; wv < 10; wv++) {
+            var wy = horizonY + 8 + wv * (h * 0.16) / 10;
+            bctx.beginPath();
+            for (var wx = 0; wx <= w; wx += 26) {
+                var wOff = Math.sin(wx * 0.05 + wv) * 3;
+                if (wx === 0) bctx.moveTo(wx, wy + wOff);
+                else bctx.lineTo(wx, wy + wOff);
+            }
+            bctx.stroke();
+        }
+        bctx.restore();
+
+        var sandTop = horizonY + h * 0.16;
+        var sandGrad = bctx.createLinearGradient(0, sandTop, 0, h);
+        sandGrad.addColorStop(0, "#f3d9a0");
+        sandGrad.addColorStop(0.3, "#e4bd77");
+        sandGrad.addColorStop(0.7, "#caa05c");
+        sandGrad.addColorStop(1, "#a97d42");
+        bctx.fillStyle = sandGrad;
+        bctx.fillRect(0, sandTop, w, h - sandTop);
+
+        bctx.save();
+        bctx.globalAlpha = 0.06;
+        bctx.fillStyle = "#5c3d16";
+        for (var sp = 0; sp < 260; sp++) {
+            var spx = Math.random() * w;
+            var spy = sandTop + Math.random() * (h - sandTop);
+            bctx.beginPath();
+            bctx.arc(spx, spy, 1 + Math.random() * 1.4, 0, Math.PI * 2);
+            bctx.fill();
+        }
+        bctx.restore();
+
+        function drawPalmSilhouette(px, py, scaleX, scaleY) {
+            bctx.save();
+            bctx.translate(px, py);
+            bctx.scale(scaleX, scaleY);
+            bctx.fillStyle = "rgba(20,40,20,0.55)";
+            bctx.beginPath();
+            bctx.moveTo(-6, 0);
+            bctx.quadraticCurveTo(-22, -70, -8, -150);
+            bctx.quadraticCurveTo(0, -160, 8, -150);
+            bctx.quadraticCurveTo(22, -70, 6, 0);
+            bctx.closePath();
+            bctx.fill();
+            var fronds = [
+                [-1.0, -1.5, 0.9], [-0.6, -1.9, 1.05], [0, -2.0, 1.15],
+                [0.6, -1.9, 1.05], [1.0, -1.5, 0.9], [-1.3, -1.0, 0.7], [1.3, -1.0, 0.7]
+            ];
+            for (var f = 0; f < fronds.length; f++) {
+                var fr = fronds[f];
+                bctx.save();
+                bctx.translate(0, -150);
+                bctx.rotate(fr[0] * 0.55);
+                bctx.beginPath();
+                bctx.moveTo(0, 0);
+                bctx.quadraticCurveTo(fr[0] * 40, -50 * fr[2], fr[1] * 70, -95 * fr[2]);
+                bctx.quadraticCurveTo(fr[0] * 30, -40 * fr[2], 0, -6);
+                bctx.closePath();
+                bctx.fill();
+                bctx.restore();
+            }
+            bctx.restore();
+        }
+        drawPalmSilhouette(w * 0.06, horizonY + h * 0.05, 0.9, 0.85);
+        drawPalmSilhouette(w * 0.97, horizonY + h * 0.02, -0.65, 0.65);
+
+        var vignette = bctx.createRadialGradient(
+            w / 2, h / 2, Math.min(w, h) * 0.25,
+            w / 2, h / 2, Math.max(w, h) * 0.85
+        );
+        vignette.addColorStop(0, "rgba(0,0,0,0)");
+        vignette.addColorStop(1, "rgba(20,20,10,0.22)");
+        bctx.fillStyle = vignette;
+        bctx.fillRect(0, 0, w, h);
+
+        scene.bgCache = cache;
+        scene.bgCacheW = w;
+        scene.bgCacheH = h;
+        scene.horizonY = horizonY;
+        scene.sandTop = sandTop;
+    }
+
     function drawBackground() {
         var w = STATE.width;
         var h = STATE.height;
 
-        var woodGrad = ctx.createLinearGradient(0, 0, 0, h);
-        woodGrad.addColorStop(0, "#1c1006");
-        woodGrad.addColorStop(0.15, "#2b1708");
-        woodGrad.addColorStop(0.5, "#170d05");
-        woodGrad.addColorStop(0.85, "#2b1708");
-        woodGrad.addColorStop(1, "#100904");
-        ctx.fillStyle = woodGrad;
-        ctx.fillRect(0, 0, w, h);
+        if (scene.bgCache && scene.bgCacheW === w && scene.bgCacheH === h) {
+            ctx.drawImage(scene.bgCache, 0, 0, w, h);
+        } else {
+            buildBackgroundCache();
+            if (scene.bgCache) {
+                ctx.drawImage(scene.bgCache, 0, 0, w, h);
+            }
+        }
+
+        var matTop = scene.tableY - scene.cupBaseH * 1.4;
+        if (matTop < (scene.sandTop || h * 0.5)) matTop = scene.sandTop || h * 0.5;
+        var matGrad = ctx.createLinearGradient(0, matTop, 0, h);
+        matGrad.addColorStop(0, "rgba(207,163,90,0.0)");
+        matGrad.addColorStop(0.12, "rgba(178,132,70,0.55)");
+        matGrad.addColorStop(1, "rgba(120,84,42,0.7)");
+        ctx.fillStyle = matGrad;
+        ctx.fillRect(0, matTop, w, h - matTop);
 
         ctx.save();
-        ctx.globalAlpha = 0.08;
-        ctx.strokeStyle = "#000000";
-        for (var gy = -h; gy < h * 1.5; gy += 6) {
+        ctx.globalAlpha = 0.14;
+        ctx.strokeStyle = "#5a3c1c";
+        ctx.lineWidth = 1;
+        for (var my = matTop; my < h; my += 9) {
             ctx.beginPath();
-            var wobble = Math.sin(gy * 0.04) * 14;
-            ctx.moveTo(-20, gy + wobble);
-            ctx.bezierCurveTo(w * 0.3, gy + wobble + 10, w * 0.7, gy + wobble - 10, w + 20, gy + wobble);
+            ctx.moveTo(0, my);
+            ctx.lineTo(w, my);
             ctx.stroke();
         }
         ctx.restore();
+    }
 
-        var feltCenterX = w / 2;
-        var feltCenterY = scene.tableY + scene.cupBaseH * 0.2;
-        var feltRadius = Math.max(w, h) * 0.75;
-        var feltGrad = ctx.createRadialGradient(
-            feltCenterX, feltCenterY, feltRadius * 0.05,
-            feltCenterX, feltCenterY, feltRadius
-        );
-        feltGrad.addColorStop(0, "#0f3d2c");
-        feltGrad.addColorStop(0.45, "#0a2a1e");
-        feltGrad.addColorStop(0.8, "#061a13");
-        feltGrad.addColorStop(1, "#04100c");
-
-        var matTop = h * 0.22;
-        var matBottom = h;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, matTop, w, matBottom - matTop);
-        ctx.clip();
-        ctx.fillStyle = feltGrad;
-        ctx.fillRect(0, matTop, w, matBottom - matTop);
-
-        ctx.globalAlpha = 0.05;
-        ctx.fillStyle = "#ffffff";
-        for (var i = 0; i < 900; i++) {
-            var rx = Math.random() * w;
-            var ry = matTop + Math.random() * (matBottom - matTop);
-            ctx.fillRect(rx, ry, 1, 1);
+    /* ======================================================
+       DRAWING: SPLASH PARTICLES (COCONUT WATER SPLASH)
+       ====================================================== */
+    function spawnSplash(x, y) {
+        var count = 10 + Math.floor(Math.random() * 6);
+        for (var i = 0; i < count; i++) {
+            var angle = Math.PI + Math.random() * Math.PI;
+            var speed = 60 + Math.random() * 130;
+            scene.splashParticles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed * 0.6,
+                vy: Math.sin(angle) * speed - 40,
+                life: 0,
+                maxLife: 380 + Math.random() * 260,
+                r: 1.5 + Math.random() * 2.5
+            });
         }
-        ctx.restore();
+    }
 
-        var edgeGrad = ctx.createLinearGradient(0, matTop - 14, 0, matTop + 30);
-        edgeGrad.addColorStop(0, "rgba(0,0,0,0.65)");
-        edgeGrad.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = edgeGrad;
-        ctx.fillRect(0, matTop - 14, w, 44);
+    function updateSplashParticles(dt) {
+        if (scene.splashParticles.length === 0) return;
+        var gravity = 0.0016;
+        for (var i = scene.splashParticles.length - 1; i >= 0; i--) {
+            var p = scene.splashParticles[i];
+            p.life += dt;
+            if (p.life >= p.maxLife) {
+                scene.splashParticles.splice(i, 1);
+                continue;
+            }
+            p.vy += gravity * dt;
+            p.x += p.vx * (dt / 1000);
+            p.y += p.vy * (dt / 1000);
+        }
+    }
 
-        var vignette = ctx.createRadialGradient(
-            w / 2, h / 2, Math.min(w, h) * 0.2,
-            w / 2, h / 2, Math.max(w, h) * 0.8
-        );
-        vignette.addColorStop(0, "rgba(0,0,0,0)");
-        vignette.addColorStop(1, "rgba(0,0,0,0.55)");
-        ctx.fillStyle = vignette;
-        ctx.fillRect(0, 0, w, h);
+    function drawSplashParticles() {
+        for (var i = 0; i < scene.splashParticles.length; i++) {
+            var p = scene.splashParticles[i];
+            var t = p.life / p.maxLife;
+            var alpha = Math.max(0, 1 - t);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * (1 - t * 0.4), 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,255,255," + (alpha * 0.85) + ")";
+            ctx.fill();
+        }
     }
 
     /* ======================================================
