@@ -1,9 +1,10 @@
+
 import streamlit as st
 import streamlit.components.v1 as components
 
 st.set_page_config(
-    page_title="3D Ball Shuffle Protocol",
-    page_icon="🌐",
+    page_title="Coconut Shuffle",
+    page_icon="🥥",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -17,7 +18,7 @@ st.markdown(
         .block-container {padding: 0 !important; margin: 0 !important; max-width: 100% !important;}
         div[data-testid="stAppViewContainer"] {padding: 0 !important;}
         div[data-testid="stVerticalBlock"] {gap: 0 !important;}
-        body {background-color: #05060a;}
+        body {background-color: #0f1d3a;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -29,7 +30,7 @@ game_html = r"""
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>3D Ball Shuffle Protocol</title>
+<title>Coconut Shuffle</title>
 <style>
     * {
         margin: 0;
@@ -44,8 +45,8 @@ game_html = r"""
         width: 100vw;
         height: 100vh;
         overflow: hidden;
-        background: #05060a;
-        font-family: 'Segoe UI', 'Trebuchet MS', Arial, sans-serif;
+        background: #0f1d3a;
+        font-family: 'Georgia', 'Trebuchet MS', serif;
     }
 
     #game-root {
@@ -53,7 +54,7 @@ game_html = r"""
         inset: 0;
         width: 100vw;
         height: 100vh;
-        background: #05060a;
+        background: #0f1d3a;
         overflow: hidden;
     }
 
@@ -67,7 +68,145 @@ game_html = r"""
         touch-action: none;
     }
 
-    /* ---------------- INTRO OVERLAY ---------------- */
+    /* ================= LOADING SCREEN ================= */
+    #loading-screen {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #0f1d3a 0%, #16294f 45%, #1c355e 100%);
+        z-index: 80;
+        overflow: hidden;
+        transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+
+    #loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .foam-particle {
+        position: absolute;
+        bottom: -20px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 70%);
+        filter: blur(0.5px);
+        animation-name: floatFoam;
+        animation-timing-function: ease-in;
+        animation-iteration-count: infinite;
+    }
+
+    @keyframes floatFoam {
+        0% { transform: translateY(0) translateX(0); opacity: 0; }
+        10% { opacity: 0.9; }
+        90% { opacity: 0.5; }
+        100% { transform: translateY(-115vh) translateX(var(--drift, 20px)); opacity: 0; }
+    }
+
+    .palm-silhouette {
+        position: absolute;
+        bottom: 0;
+        width: 140px;
+        height: 260px;
+        opacity: 0.55;
+    }
+
+    #loading-hud {
+        position: relative;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 20px;
+    }
+
+    .wood-title {
+        font-size: clamp(24px, 5.4vw, 48px);
+        font-weight: 900;
+        letter-spacing: 2px;
+        text-align: center;
+        color: #d9b578;
+        background: linear-gradient(180deg, #e8c98d 0%, #b98a4c 55%, #7a4f2a 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 4px 8px rgba(0,0,0,0.5);
+        margin-bottom: 8px;
+        filter: drop-shadow(0 1px 0 rgba(255,235,200,0.25));
+    }
+
+    .wood-subtitle {
+        font-size: clamp(11px, 2vw, 14px);
+        letter-spacing: 5px;
+        color: #9fb3d0;
+        text-transform: uppercase;
+        margin-bottom: 42px;
+        text-align: center;
+    }
+
+    #bamboo-track {
+        position: relative;
+        width: clamp(220px, 50vw, 380px);
+        height: 26px;
+        border-radius: 14px;
+        background: repeating-linear-gradient(
+            90deg,
+            #cbb37c 0px, #cbb37c 34px,
+            #b89c60 34px, #b89c60 38px
+        );
+        border: 3px solid #6b5330;
+        box-shadow: inset 0 3px 6px rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.4);
+        overflow: hidden;
+    }
+
+    #bamboo-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #5a3820 0%, #3d2314 55%, #22120a 100%);
+        box-shadow: inset 0 2px 4px rgba(255,220,170,0.15), inset 0 -3px 6px rgba(0,0,0,0.4);
+        transition: width 0.12s linear;
+    }
+
+    #loading-pct {
+        margin-top: 14px;
+        color: #b9c9e6;
+        font-size: 13px;
+        letter-spacing: 3px;
+    }
+
+    #enter-resort-btn {
+        display: none;
+        margin-top: 6px;
+        padding: 18px 50px;
+        font-size: clamp(15px, 2.4vw, 19px);
+        font-weight: 800;
+        letter-spacing: 3px;
+        color: #f3e4c4;
+        background: linear-gradient(180deg, #8a5a30 0%, #5c3a21 55%, #3d2314 100%);
+        border: 3px solid #22120a;
+        border-radius: 10px;
+        cursor: pointer;
+        box-shadow: 0 6px 0 #1a0d06, 0 10px 18px rgba(0,0,0,0.55);
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    #enter-resort-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 0 #1a0d06, 0 14px 22px rgba(0,0,0,0.6);
+    }
+
+    #enter-resort-btn:active {
+        transform: translateY(3px);
+        box-shadow: 0 3px 0 #1a0d06, 0 6px 10px rgba(0,0,0,0.5);
+    }
+
+    /* ================= WOODEN CONFIG WINDOW ================= */
     #intro-overlay {
         position: absolute;
         inset: 0;
@@ -77,9 +216,9 @@ game_html = r"""
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(ellipse at center, #101423 0%, #05060a 65%, #000000 100%);
+        background: linear-gradient(180deg, #22150c 0%, #150d07 100%);
         z-index: 50;
-        transition: opacity 0.6s ease, visibility 0.6s ease;
+        transition: opacity 0.5s ease, visibility 0.5s ease;
         padding: 20px;
         overflow-y: auto;
     }
@@ -90,55 +229,24 @@ game_html = r"""
         pointer-events: none;
     }
 
-    .neon-title {
-        font-size: clamp(22px, 5.2vw, 46px);
-        font-weight: 800;
+    .plank-title {
+        font-size: clamp(20px, 4.4vw, 34px);
+        font-weight: 900;
         letter-spacing: 2px;
         text-align: center;
-        color: #7dffe0;
-        text-shadow:
-            0 0 5px #35ffce,
-            0 0 15px #21e0ff,
-            0 0 30px #0fa3ff,
-            0 0 60px #0a6cff;
-        margin-bottom: 6px;
-        animation: pulseGlow 2.4s ease-in-out infinite;
-    }
-
-    .neon-sub {
-        font-size: clamp(11px, 2vw, 15px);
-        letter-spacing: 6px;
-        color: #7799bb;
-        text-transform: uppercase;
-        margin-bottom: 34px;
-        text-align: center;
-    }
-
-    @keyframes pulseGlow {
-        0%, 100% {
-            text-shadow:
-                0 0 5px #35ffce,
-                0 0 15px #21e0ff,
-                0 0 30px #0fa3ff,
-                0 0 60px #0a6cff;
-        }
-        50% {
-            text-shadow:
-                0 0 10px #35ffce,
-                0 0 25px #21e0ff,
-                0 0 45px #0fa3ff,
-                0 0 90px #0a6cff;
-        }
+        color: #e8c98d;
+        text-shadow: 0 2px 0 rgba(0,0,0,0.6);
+        margin-bottom: 30px;
     }
 
     .section-label {
-        color: #6fe3ff;
+        color: #c9a869;
         font-size: clamp(11px, 1.8vw, 14px);
         letter-spacing: 3px;
         text-transform: uppercase;
-        margin: 18px 0 12px 0;
+        margin: 18px 0 14px 0;
         text-align: center;
-        opacity: 0.85;
+        opacity: 0.9;
     }
 
     #difficulty-row {
@@ -151,31 +259,29 @@ game_html = r"""
 
     .diff-btn {
         position: relative;
-        padding: 14px 30px;
+        padding: 15px 30px;
         font-size: clamp(13px, 2vw, 16px);
         font-weight: 700;
         letter-spacing: 2px;
-        color: #cfe8ff;
-        background: linear-gradient(160deg, #131a2b 0%, #0a0e18 100%);
-        border: 1.5px solid #294066;
-        border-radius: 10px;
+        color: #e9d4ac;
+        background: linear-gradient(180deg, #7a4f30 0%, #5c3a21 100%);
+        border: 2px solid #3d2314;
+        border-radius: 8px;
         cursor: pointer;
-        transition: all 0.2s ease;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.5);
+        transition: all 0.15s ease;
+        box-shadow: 0 4px 0 #22120a, inset 0 1px 0 rgba(255,255,255,0.08);
     }
 
     .diff-btn:hover {
-        border-color: #52e8ff;
-        color: #ffffff;
-        box-shadow: 0 0 14px rgba(82,232,255,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
         transform: translateY(-2px);
+        box-shadow: 0 6px 0 #22120a, inset 0 1px 0 rgba(255,255,255,0.1);
     }
 
     .diff-btn.selected {
-        border-color: #52ffb0;
-        color: #eafff5;
-        background: linear-gradient(160deg, #103224 0%, #081b14 100%);
-        box-shadow: 0 0 20px rgba(82,255,176,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+        background: linear-gradient(180deg, #caa250 0%, #d4af37 55%, #8a6a1e 100%);
+        color: #2a1a06;
+        border-color: #6b5119;
+        box-shadow: 0 4px 0 #4a3813, inset 0 1px 0 rgba(255,255,255,0.35);
     }
 
     #cup-selector {
@@ -187,106 +293,104 @@ game_html = r"""
     }
 
     .cup-slot {
-        width: clamp(38px, 8vw, 54px);
-        height: clamp(38px, 8vw, 54px);
-        border-radius: 12px;
-        border: 1.5px solid #2c3b52;
-        background: linear-gradient(160deg, #101623 0%, #080b12 100%);
+        width: clamp(42px, 8vw, 58px);
+        height: clamp(42px, 8vw, 58px);
+        border-radius: 8px;
+        border: 2px solid #3d2314;
+        background: linear-gradient(180deg, #6b4527 0%, #4a2e16 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: 700;
-        font-size: clamp(14px, 2.4vw, 18px);
-        color: #8fb3d9;
+        font-weight: 800;
+        font-size: clamp(15px, 2.4vw, 19px);
+        color: #d9c3a0;
         cursor: pointer;
-        transition: all 0.18s ease;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        transition: all 0.15s ease;
+        box-shadow: 0 3px 0 #22120a, inset 0 1px 0 rgba(255,255,255,0.06);
     }
 
     .cup-slot:hover {
-        border-color: #52e8ff;
-        color: #ffffff;
+        transform: translateY(-2px);
     }
 
     .cup-slot.selected {
-        border-color: #17ffb4;
-        background: linear-gradient(160deg, #0e3527 0%, #061c15 100%);
-        color: #baffe9;
-        box-shadow: 0 0 16px rgba(23,255,180,0.75), inset 0 0 10px rgba(23,255,180,0.25);
-        transform: scale(1.08);
+        background: linear-gradient(180deg, #eccb70 0%, #d4af37 55%, #93711f 100%);
+        border-color: #3d2314;
+        color: #2a1a06;
+        box-shadow: 0 3px 0 #4a3813, inset 0 1px 0 rgba(255,255,255,0.4);
+        transform: scale(1.06);
     }
 
     #start-descent-btn {
         margin-top: 30px;
-        padding: 16px 46px;
+        padding: 17px 48px;
         font-size: clamp(14px, 2.4vw, 18px);
         font-weight: 800;
         letter-spacing: 3px;
-        color: #04140d;
-        background: linear-gradient(160deg, #35ffce 0%, #12c98f 100%);
-        border: none;
-        border-radius: 40px;
+        color: #f3e4c4;
+        background: linear-gradient(180deg, #8a5a30 0%, #5c3a21 55%, #3d2314 100%);
+        border: 3px solid #22120a;
+        border-radius: 10px;
         cursor: pointer;
-        box-shadow: 0 0 25px rgba(53,255,206,0.55), 0 6px 18px rgba(0,0,0,0.6);
-        transition: all 0.2s ease;
+        box-shadow: 0 6px 0 #1a0d06, 0 10px 18px rgba(0,0,0,0.5);
+        transition: all 0.15s ease;
     }
 
     #start-descent-btn:disabled {
         opacity: 0.35;
         cursor: not-allowed;
-        box-shadow: none;
+        box-shadow: 0 6px 0 #1a0d06;
     }
 
     #start-descent-btn:not(:disabled):hover {
-        transform: translateY(-3px) scale(1.03);
-        box-shadow: 0 0 35px rgba(53,255,206,0.8), 0 10px 22px rgba(0,0,0,0.6);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 0 #1a0d06, 0 12px 20px rgba(0,0,0,0.55);
     }
 
     #start-descent-btn:not(:disabled):active {
-        transform: translateY(0px) scale(0.98);
+        transform: translateY(3px);
+        box-shadow: 0 3px 0 #1a0d06;
     }
 
     .hint-text {
         margin-top: 14px;
-        color: #5c7590;
+        color: #8a7455;
         font-size: clamp(10px, 1.6vw, 12px);
         letter-spacing: 1px;
         text-align: center;
     }
 
-    /* ---------------- HUD MENU ---------------- */
+    /* ================= HUD (WOOD, NO GLOW) ================= */
     #hud-menu-btn {
         position: absolute;
         top: 16px;
         left: 16px;
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        background: rgba(8,12,20,0.65);
-        border: 1.5px solid #2c5570;
+        width: 44px;
+        height: 44px;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #6b4527 0%, #4a2e16 100%);
+        border: 2px solid #22120a;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         z-index: 40;
-        box-shadow: 0 0 14px rgba(33,224,255,0.35);
-        transition: all 0.2s ease;
-        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 0 #17100a, 0 6px 10px rgba(0,0,0,0.4);
+        transition: transform 0.15s ease;
     }
 
     #hud-menu-btn:hover {
-        border-color: #52e8ff;
-        box-shadow: 0 0 20px rgba(82,232,255,0.65);
+        transform: translateY(-1px);
     }
 
     #hud-menu-btn span {
         display: block;
-        width: 18px;
-        height: 2px;
-        background: #6fe3ff;
+        width: 20px;
+        height: 3px;
+        background: #d9c3a0;
         margin: 2.5px 0;
         border-radius: 2px;
-        box-shadow: 0 0 6px rgba(111,227,255,0.8);
     }
 
     .hidden-el {
@@ -304,30 +408,27 @@ game_html = r"""
     }
 
     #mute-btn {
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        background: rgba(8,12,20,0.65);
-        border: 1.5px solid #2c5570;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #6b4527 0%, #4a2e16 100%);
+        border: 2px solid #22120a;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         font-size: 16px;
-        box-shadow: 0 0 14px rgba(33,224,255,0.25);
-        backdrop-filter: blur(4px);
-        transition: all 0.2s ease;
+        box-shadow: 0 4px 0 #17100a, 0 6px 10px rgba(0,0,0,0.4);
+        transition: transform 0.15s ease;
         flex-shrink: 0;
     }
 
     #mute-btn:hover {
-        border-color: #52e8ff;
-        box-shadow: 0 0 20px rgba(82,232,255,0.55);
+        transform: translateY(-1px);
     }
 
     #mute-btn.muted {
-        color: #ff6a6a;
-        border-color: #6a2c33;
+        filter: grayscale(0.4);
     }
 
     #control-pane {
@@ -336,8 +437,10 @@ game_html = r"""
         left: 0;
         height: 100%;
         width: min(280px, 78vw);
-        background: linear-gradient(160deg, rgba(10,14,24,0.97) 0%, rgba(5,7,12,0.98) 100%);
-        border-right: 1.5px solid #23384f;
+        background:
+            repeating-linear-gradient(115deg, rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 3px, transparent 3px, transparent 9px),
+            linear-gradient(160deg, #3d2b18 0%, #22150c 100%);
+        border-right: 3px solid #1a0d06;
         z-index: 45;
         transform: translateX(-105%);
         transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
@@ -350,12 +453,11 @@ game_html = r"""
     }
 
     .control-pane-title {
-        color: #7dffe0;
+        color: #e8c98d;
         font-size: 14px;
         letter-spacing: 3px;
         text-transform: uppercase;
         margin-bottom: 22px;
-        text-shadow: 0 0 10px rgba(53,255,206,0.5);
     }
 
     .control-link {
@@ -364,26 +466,25 @@ game_html = r"""
         text-align: left;
         padding: 14px 16px;
         margin-bottom: 12px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid #23384f;
+        background: linear-gradient(180deg, #6b4527 0%, #4a2e16 100%);
+        border: 2px solid #22120a;
         border-radius: 8px;
-        color: #cfe8ff;
+        color: #e9d4ac;
         font-size: 12.5px;
         letter-spacing: 1.5px;
         font-weight: 700;
         cursor: pointer;
-        transition: all 0.2s ease;
+        box-shadow: 0 3px 0 #17100a;
+        transition: all 0.15s ease;
     }
 
     .control-link:hover {
-        border-color: #52e8ff;
-        background: rgba(82,232,255,0.08);
-        color: #ffffff;
+        transform: translateY(-1px);
     }
 
     .control-status {
         margin-top: 26px;
-        color: #5c7590;
+        color: #9c8362;
         font-size: 11px;
         letter-spacing: 1px;
         line-height: 1.7;
@@ -410,23 +511,21 @@ game_html = r"""
         top: 18px;
         left: 50%;
         transform: translateX(-50%);
-        color: #eafcff;
+        color: #3d2314;
         font-size: clamp(12px, 2.4vw, 17px);
-        font-weight: 700;
+        font-weight: 800;
         letter-spacing: 2px;
         text-align: center;
         padding: 10px 22px;
-        border-radius: 30px;
-        background: rgba(6,10,18,0.55);
-        border: 1px solid #2c5570;
-        text-shadow: 0 0 10px rgba(111,227,255,0.7);
-        box-shadow: 0 0 16px rgba(33,224,255,0.25);
+        border-radius: 8px;
+        background: linear-gradient(180deg, #e8c98d 0%, #cbaa66 100%);
+        border: 2px solid #6b5330;
         z-index: 30;
         opacity: 0;
         transition: opacity 0.4s ease;
         pointer-events: none;
         max-width: 90%;
-        backdrop-filter: blur(3px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.35);
     }
 
     #hud-message.visible {
@@ -435,16 +534,15 @@ game_html = r"""
 
     #score-pill {
         padding: 9px 18px;
-        border-radius: 20px;
-        background: rgba(8,12,20,0.65);
-        border: 1.5px solid #2c5570;
-        color: #9fe8ff;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #6b4527 0%, #4a2e16 100%);
+        border: 2px solid #22120a;
+        color: #e9d4ac;
         font-size: clamp(11px, 1.8vw, 13px);
         font-weight: 700;
         letter-spacing: 1.5px;
         z-index: 40;
-        box-shadow: 0 0 14px rgba(33,224,255,0.25);
-        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 0 #17100a, 0 6px 10px rgba(0,0,0,0.4);
     }
 
     #audio-unlock-hint {
@@ -453,20 +551,20 @@ game_html = r"""
         left: 50%;
         transform: translateX(-50%);
         padding: 11px 22px;
-        border-radius: 30px;
-        background: rgba(6,10,18,0.85);
-        border: 1.5px solid #52e8ff;
-        color: #eafcff;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #6b4527 0%, #4a2e16 100%);
+        border: 2px solid #d4af37;
+        color: #f0e0bb;
         font-size: clamp(11px, 2vw, 13px);
         font-weight: 700;
         letter-spacing: 1.5px;
         z-index: 65;
         cursor: pointer;
-        box-shadow: 0 0 20px rgba(82,232,255,0.5);
+        box-shadow: 0 4px 0 #17100a, 0 6px 14px rgba(0,0,0,0.45);
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.3s ease;
-        animation: hintPulse 1.6s ease-in-out infinite;
+        animation: hintBob 1.6s ease-in-out infinite;
     }
 
     #audio-unlock-hint.visible {
@@ -474,9 +572,9 @@ game_html = r"""
         pointer-events: auto;
     }
 
-    @keyframes hintPulse {
-        0%, 100% { box-shadow: 0 0 20px rgba(82,232,255,0.5); }
-        50% { box-shadow: 0 0 32px rgba(82,232,255,0.85); }
+    @keyframes hintBob {
+        0%, 100% { transform: translateX(-50%) translateY(0); }
+        50% { transform: translateX(-50%) translateY(-4px); }
     }
 
     /* ---------------- RESULT OVERLAY ---------------- */
@@ -491,8 +589,7 @@ game_html = r"""
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.5s ease;
-        background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(2px);
+        background: rgba(10,6,3,0.6);
     }
 
     #result-overlay.visible {
@@ -501,23 +598,22 @@ game_html = r"""
     }
 
     #result-title {
-        font-size: clamp(28px, 7vw, 60px);
+        font-size: clamp(28px, 7vw, 58px);
         font-weight: 900;
         letter-spacing: 3px;
         text-align: center;
         margin-bottom: 26px;
         padding: 0 16px;
+        text-shadow: 0 3px 0 rgba(0,0,0,0.6);
     }
 
     #result-title.win {
-        color: #ffd85c;
-        text-shadow: 0 0 20px #ffb400, 0 0 50px #ff9500, 0 0 90px #ff7a00;
+        color: #f3d98a;
         animation: winPulse 1s ease-in-out infinite;
     }
 
     #result-title.lose {
-        color: #ff5c6a;
-        text-shadow: 0 0 20px #ff1e3a, 0 0 50px #d3001f, 0 0 90px #8f0015;
+        color: #d98a7a;
         animation: losePulse 1s ease-in-out infinite;
     }
 
@@ -532,16 +628,16 @@ game_html = r"""
     }
 
     #result-again-btn {
-        padding: 14px 40px;
+        padding: 15px 42px;
         font-size: clamp(13px, 2.2vw, 16px);
         font-weight: 800;
         letter-spacing: 2px;
-        color: #04140d;
-        background: linear-gradient(160deg, #35ffce 0%, #12c98f 100%);
-        border: none;
-        border-radius: 40px;
+        color: #f3e4c4;
+        background: linear-gradient(180deg, #8a5a30 0%, #5c3a21 55%, #3d2314 100%);
+        border: 3px solid #22120a;
+        border-radius: 10px;
         cursor: pointer;
-        box-shadow: 0 0 25px rgba(53,255,206,0.55);
+        box-shadow: 0 6px 0 #1a0d06;
     }
 
     #result-again-btn:hover {
@@ -569,9 +665,9 @@ game_html = r"""
 
     <div id="pane-backdrop"></div>
     <div id="control-pane">
-        <div class="control-pane-title">SYSTEM CONTROL CONSOLE</div>
-        <button class="control-link" id="btn-return-chassis">&#8592; RETURN TO MENU</button>
-        <button class="control-link" id="btn-recalibrate">&#9881; RE-CALIBRATE SETTINGS</button>
+        <div class="control-pane-title">RESORT CONTROL DESK</div>
+        <button class="control-link" id="btn-return-chassis">&#8592; RETURN TO MAIN GATE</button>
+        <button class="control-link" id="btn-recalibrate">&#9881; ADJUST SHUFFLE SETTINGS</button>
         <div class="control-status" id="pane-status-text">DIFFICULTY: EASY<br>CUPS: 3<br>STATE: IDLE</div>
     </div>
 
@@ -580,9 +676,8 @@ game_html = r"""
         <button id="result-again-btn">SHUFFLE AGAIN</button>
     </div>
 
-    <div id="intro-overlay">
-        <div class="neon-title">&#127760; 3D BALL SHUFFLE PROTOCOL</div>
-        <div class="neon-sub">TRACK THE ORB &middot; TRUST NOTHING</div>
+    <div id="intro-overlay" class="hidden">
+        <div class="plank-title">&#129381; COCONUT SHUFFLE</div>
 
         <div class="section-label">SELECT DIFFICULTY</div>
         <div id="difficulty-row">
@@ -593,16 +688,26 @@ game_html = r"""
 
         <div class="section-label">SELECT CUP COUNT</div>
         <div id="cup-selector">
-            <div class="cup-slot" data-count="0">0</div>
             <div class="cup-slot" data-count="1">1</div>
             <div class="cup-slot" data-count="2">2</div>
-            <div class="cup-slot" data-count="3">3</div>
+            <div class="cup-slot selected" data-count="3">3</div>
             <div class="cup-slot" data-count="4">4</div>
             <div class="cup-slot" data-count="5">5</div>
         </div>
 
-        <button id="start-descent-btn" disabled>START DESCENT</button>
-        <div class="hint-text">CHOOSE A DIFFICULTY AND A CUP COUNT TO BEGIN</div>
+        <button id="start-descent-btn" disabled>BEGIN SHUFFLE &#127754;</button>
+        <div class="hint-text">CHOOSE A DIFFICULTY TO BEGIN</div>
+    </div>
+
+    <div id="loading-screen">
+        <div id="foam-container"></div>
+        <div id="loading-hud">
+            <div class="wood-title">&#129381; COCONUT SHUFFLE</div>
+            <div class="wood-subtitle">A RUSTIC RESORT GUESSING GAME</div>
+            <div id="bamboo-track"><div id="bamboo-fill"></div></div>
+            <div id="loading-pct">LOADING RESORT... 0%</div>
+            <button id="enter-resort-btn">ENTER RESORT &#127796;</button>
+        </div>
     </div>
 </div>
 
@@ -615,6 +720,11 @@ game_html = r"""
        ====================================================== */
     var canvas = document.getElementById("game-canvas");
     var ctx = canvas.getContext("2d");
+    var loadingScreen = document.getElementById("loading-screen");
+    var bambooFill = document.getElementById("bamboo-fill");
+    var loadingPct = document.getElementById("loading-pct");
+    var enterResortBtn = document.getElementById("enter-resort-btn");
+    var foamContainer = document.getElementById("foam-container");
     var introOverlay = document.getElementById("intro-overlay");
     var difficultyRow = document.getElementById("difficulty-row");
     var cupSelector = document.getElementById("cup-selector");
@@ -638,9 +748,9 @@ game_html = r"""
        GLOBAL GAME STATE
        ====================================================== */
     var STATE = {
-        phase: "intro",          // intro | dropping | shuffling | guessing | revealing | result
+        phase: "loading",        // loading | intro | dropping | shuffling | guessing | revealing | result
         difficulty: null,        // easy | medium | hard
-        cupCount: null,          // 0 - 5
+        cupCount: 3,              // 1 - 5 (no zero-cup option)
         paused: false,
         round: 0,
         wins: 0,
@@ -650,18 +760,87 @@ game_html = r"""
     };
 
     var DIFFICULTY_PROFILES = {
-        easy:   { swaps: 5,  swapDuration: 900, lift: 46, label: "EASY" },
-        medium: { swaps: 9,  swapDuration: 560, lift: 60, label: "MEDIUM" },
-        hard:   { swaps: 15, swapDuration: 300, lift: 78, label: "HARD" }
+        easy:   { swaps: 5,  swapDuration: 950, lift: 40, label: "EASY",   waveSpeed: 0.7,  orbitAmp: 16, fig8Amp: 10 },
+        medium: { swaps: 9,  swapDuration: 600, lift: 54, label: "MEDIUM", waveSpeed: 1.3,  orbitAmp: 30, fig8Amp: 22 },
+        hard:   { swaps: 15, swapDuration: 320, lift: 70, label: "HARD",   waveSpeed: 2.2,  orbitAmp: 48, fig8Amp: 38 }
     };
+
+    /* ======================================================
+       LOADING SCREEN: FOAM PARTICLES + PROGRESS BAR
+       ====================================================== */
+    function spawnFoamParticles() {
+        var count = 26;
+        for (var i = 0; i < count; i++) {
+            var p = document.createElement("div");
+            p.className = "foam-particle";
+            var size = 4 + Math.random() * 10;
+            p.style.width = size + "px";
+            p.style.height = size + "px";
+            p.style.left = (Math.random() * 100) + "vw";
+            var duration = 6 + Math.random() * 7;
+            p.style.animationDuration = duration + "s";
+            p.style.animationDelay = (-Math.random() * duration) + "s";
+            p.style.setProperty("--drift", (Math.random() * 80 - 40) + "px");
+            foamContainer.appendChild(p);
+        }
+    }
+
+    function drawPalmSVG(flip) {
+        var ns = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", "0 0 140 260");
+        svg.setAttribute("class", "palm-silhouette");
+        svg.style.left = flip ? "auto" : "-6px";
+        svg.style.right = flip ? "-6px" : "auto";
+        if (flip) svg.style.transform = "scaleX(-1)";
+        var g = document.createElementNS(ns, "path");
+        g.setAttribute("d",
+            "M70 260 Q60 170 66 110 Q40 90 20 60 Q46 70 68 92 Q58 50 40 10 Q62 40 70 90 " +
+            "Q78 40 100 10 Q82 50 72 92 Q94 70 120 60 Q100 90 74 110 Q80 170 70 260 Z");
+        g.setAttribute("fill", "#0a1526");
+        svg.appendChild(g);
+        return svg;
+    }
+
+    function initLoadingVisuals() {
+        spawnFoamParticles();
+        foamContainer.appendChild(drawPalmSVG(false));
+        foamContainer.appendChild(drawPalmSVG(true));
+    }
+
+    var loadingProgress = 0;
+    var loadingIntervalId = null;
+
+    function runLoadingBar() {
+        loadingIntervalId = setInterval(function () {
+            var step = loadingProgress < 60 ? (0.8 + Math.random() * 1.6) : (0.4 + Math.random() * 1.0);
+            loadingProgress = Math.min(99, loadingProgress + step);
+            bambooFill.style.width = loadingProgress + "%";
+            loadingPct.textContent = "LOADING RESORT... " + Math.floor(loadingProgress) + "%";
+            if (loadingProgress >= 99) {
+                clearInterval(loadingIntervalId);
+                loadingIntervalId = null;
+                bambooFill.parentElement.style.display = "none";
+                loadingPct.style.display = "none";
+                enterResortBtn.style.display = "inline-block";
+            }
+        }, 90);
+    }
+
+    enterResortBtn.addEventListener("click", function () {
+        loadingScreen.classList.add("hidden");
+        introOverlay.classList.remove("hidden");
+        STATE.phase = "intro";
+    });
 
     /* ======================================================
        AUDIO ENGINE
        Fully synthesized in-browser via the Web Audio API.
-       No external audio files are loaded — background music
-       is a generated chill synthwave loop and every sound
-       effect (cup clacks, whooshes, thuds, stingers) is
-       built from oscillators and filtered noise buffers.
+       No external audio files are loaded. Background music is
+       a syncopated steel-drum / marimba style tropical vacation
+       loop, and every sound effect (coconut taps, whooshes,
+       thuds, stingers) is built from oscillators and filtered
+       noise buffers.
        ====================================================== */
     var AudioEngine = {
         ctx: null,
@@ -675,14 +854,17 @@ game_html = r"""
         schedulerId: null,
         nextStepTime: 0,
         stepIndex: 0,
-        tempo: 92,
+        tempo: 112,
         stepsPerBeat: 2,
+        /* Calypso-ish major/pentatonic progression, tuned for steel drum + marimba plinks */
         chords: [
-            { notes: [110.00, 220.00, 261.63, 329.63], bass: 55.00 },
-            { notes: [87.31, 174.61, 220.00, 261.63], bass: 43.65 },
-            { notes: [98.00, 196.00, 246.94, 293.66], bass: 49.00 },
-            { notes: [130.81, 196.00, 246.94, 329.63], bass: 65.41 }
+            { notes: [220.00, 277.18, 329.63, 440.00], bass: 110.00 },
+            { notes: [246.94, 293.66, 369.99, 493.88], bass: 123.47 },
+            { notes: [196.00, 246.94, 293.66, 392.00], bass: 98.00 },
+            { notes: [220.00, 277.18, 329.63, 415.30], bass: 110.00 }
         ],
+        /* syncopated hit pattern across 8 steps per bar: 1 = accent plink */
+        rhythmPattern: [1, 0, 1, 1, 0, 1, 0, 1],
 
         init: function () {
             if (this.ctx) return;
@@ -704,7 +886,7 @@ game_html = r"""
             this.compressor.connect(this.ctx.destination);
 
             this.musicBus = this.ctx.createGain();
-            this.musicBus.gain.value = 0.42;
+            this.musicBus.gain.value = 0.5;
             this.musicBus.connect(this.master);
 
             this.sfxBus = this.ctx.createGain();
@@ -712,12 +894,12 @@ game_html = r"""
             this.sfxBus.connect(this.master);
 
             this.delayNode = this.ctx.createDelay();
-            this.delayNode.delayTime.value = 0.28;
+            this.delayNode.delayTime.value = 0.19;
             this.delayFeedback = this.ctx.createGain();
-            this.delayFeedback.gain.value = 0.22;
+            this.delayFeedback.gain.value = 0.16;
             var delayFilter = this.ctx.createBiquadFilter();
             delayFilter.type = "lowpass";
-            delayFilter.frequency.value = 2200;
+            delayFilter.frequency.value = 3200;
             this.delayNode.connect(delayFilter);
             delayFilter.connect(this.delayFeedback);
             this.delayFeedback.connect(this.delayNode);
@@ -782,83 +964,96 @@ game_html = r"""
             var stepInBar = step % 8;
 
             if (stepInBar === 0) {
-                this.playPad(chord.notes, time, (60.0 / this.tempo) * 4);
+                this.playMarimbaPad(chord.notes, time);
             }
             if (stepInBar === 0 || stepInBar === 4) {
-                this.playBassPluck(chord.bass, time);
+                this.playSteelBass(chord.bass, time);
             }
-            var arpNote = chord.notes[step % chord.notes.length];
-            if (Math.random() > 0.18) {
-                this.playArpNote(arpNote * 2, time, stepInBar % 2 === 0 ? 0.5 : 0.32);
+            if (this.rhythmPattern[stepInBar] === 1) {
+                var note = chord.notes[(step + barIndex) % chord.notes.length];
+                this.playSteelDrum(note * 2, time, stepInBar % 4 === 0 ? 0.55 : 0.34);
             }
-            this.playHat(time, stepInBar % 2 === 0 ? 0.18 : 0.09);
+            if (stepInBar % 2 === 1) {
+                this.playShaker(time, stepInBar === 7 ? 0.22 : 0.12);
+            }
         },
 
-        playPad: function (freqs, time, duration) {
+        /* soft marimba pad -- rounded triangle tone, quick soft attack */
+        playMarimbaPad: function (freqs, time) {
             if (!this.musicPlaying) return;
             var self = this;
-            var padGain = this.ctx.createGain();
-            padGain.gain.setValueAtTime(0.0001, time);
-            padGain.gain.exponentialRampToValueAtTime(0.16, time + 0.9);
-            padGain.gain.setValueAtTime(0.16, time + duration - 0.6);
-            padGain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
-
-            var filter = this.ctx.createBiquadFilter();
-            filter.type = "lowpass";
-            filter.frequency.value = 900;
-            filter.Q.value = 0.6;
-
-            padGain.connect(filter);
-            filter.connect(this.musicBus);
-
-            freqs.forEach(function (f) {
+            var duration = (60.0 / this.tempo) * 4;
+            freqs.forEach(function (f, idx) {
+                var t = time + idx * 0.015;
                 var osc = self.ctx.createOscillator();
                 osc.type = "triangle";
-                osc.frequency.value = f;
-                osc.connect(padGain);
-                osc.start(time);
-                osc.stop(time + duration + 0.05);
+                osc.frequency.value = f / 2;
+                var filter = self.ctx.createBiquadFilter();
+                filter.type = "lowpass";
+                filter.frequency.value = 1400;
+                var g = self.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.11, t + 0.03);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + duration * 0.8);
+                osc.connect(filter);
+                filter.connect(g);
+                g.connect(self.musicBus);
+                osc.start(t);
+                osc.stop(t + duration);
             });
         },
 
-        playBassPluck: function (freq, time) {
+        /* warm rounded steel-drum bass thump */
+        playSteelBass: function (freq, time) {
             if (!this.musicPlaying) return;
             var osc = this.ctx.createOscillator();
             osc.type = "sine";
             osc.frequency.value = freq;
             var g = this.ctx.createGain();
             g.gain.setValueAtTime(0.0001, time);
-            g.gain.exponentialRampToValueAtTime(0.35, time + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.42);
+            g.gain.exponentialRampToValueAtTime(0.38, time + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.5);
             osc.connect(g);
             g.connect(this.musicBus);
             osc.start(time);
-            osc.stop(time + 0.45);
+            osc.stop(time + 0.52);
         },
 
-        playArpNote: function (freq, time, velocity) {
+        /* bright bell-like steel drum plink -- fundamental + detuned overtone through a resonant bandpass */
+        playSteelDrum: function (freq, time, velocity) {
             if (!this.musicPlaying) return;
-            var osc = this.ctx.createOscillator();
-            osc.type = "sawtooth";
-            osc.frequency.value = freq;
-            var filter = this.ctx.createBiquadFilter();
-            filter.type = "lowpass";
-            filter.frequency.value = 2600;
+            var self = this;
             var g = this.ctx.createGain();
             g.gain.setValueAtTime(0.0001, time);
-            g.gain.exponentialRampToValueAtTime(velocity * 0.22, time + 0.01);
-            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
-            osc.connect(filter);
-            filter.connect(g);
-            g.connect(this.musicBus);
-            if (this.delayNode) g.connect(this.delayNode);
-            osc.start(time);
-            osc.stop(time + 0.3);
+            g.gain.exponentialRampToValueAtTime(velocity * 0.3, time + 0.008);
+            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.42);
+
+            var bandpass = this.ctx.createBiquadFilter();
+            bandpass.type = "bandpass";
+            bandpass.frequency.value = freq * 1.5;
+            bandpass.Q.value = 3.5;
+
+            g.connect(bandpass);
+            bandpass.connect(this.musicBus);
+            if (this.delayNode) bandpass.connect(this.delayNode);
+
+            [1.0, 2.005, 3.01].forEach(function (mult, idx) {
+                var osc = self.ctx.createOscillator();
+                osc.type = "sine";
+                osc.frequency.value = freq * mult;
+                var og = self.ctx.createGain();
+                og.gain.value = idx === 0 ? 1.0 : (idx === 1 ? 0.35 : 0.15);
+                osc.connect(og);
+                og.connect(g);
+                osc.start(time);
+                osc.stop(time + 0.45);
+            });
         },
 
-        playHat: function (time, velocity) {
+        /* soft shaker/maraca-style noise tick for the tropical groove */
+        playShaker: function (time, velocity) {
             if (!this.musicPlaying) return;
-            var bufferSize = Math.floor(this.ctx.sampleRate * 0.05);
+            var bufferSize = Math.floor(this.ctx.sampleRate * 0.06);
             var buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
             var data = buffer.getChannelData(0);
             for (var i = 0; i < bufferSize; i++) {
@@ -867,16 +1062,17 @@ game_html = r"""
             var noise = this.ctx.createBufferSource();
             noise.buffer = buffer;
             var filter = this.ctx.createBiquadFilter();
-            filter.type = "highpass";
-            filter.frequency.value = 7000;
+            filter.type = "bandpass";
+            filter.frequency.value = 5200;
+            filter.Q.value = 0.9;
             var g = this.ctx.createGain();
-            g.gain.setValueAtTime(velocity * 0.5, time);
-            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+            g.gain.setValueAtTime(velocity * 0.35, time);
+            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.07);
             noise.connect(filter);
             filter.connect(g);
             g.connect(this.musicBus);
             noise.start(time);
-            noise.stop(time + 0.06);
+            noise.stop(time + 0.08);
         },
 
         /* ---------------- SOUND EFFECTS ---------------- */
@@ -890,6 +1086,7 @@ game_html = r"""
             return buffer;
         },
 
+        /* woody "tock" when a coconut cup is tapped -- softer & lower than a metallic clack */
         playCupClack: function () {
             this.init();
             this.resume();
@@ -897,31 +1094,31 @@ game_html = r"""
             var now = this.ctx.currentTime;
 
             var noise = this.ctx.createBufferSource();
-            noise.buffer = this.makeNoiseBuffer(0.09);
+            noise.buffer = this.makeNoiseBuffer(0.06);
             var bandpass = this.ctx.createBiquadFilter();
             bandpass.type = "bandpass";
-            bandpass.frequency.value = 1400 + Math.random() * 500;
-            bandpass.Q.value = 1.6;
+            bandpass.frequency.value = 750 + Math.random() * 220;
+            bandpass.Q.value = 1.2;
             var noiseGain = this.ctx.createGain();
-            noiseGain.gain.setValueAtTime(0.5, now);
-            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+            noiseGain.gain.setValueAtTime(0.28, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
             noise.connect(bandpass);
             bandpass.connect(noiseGain);
             noiseGain.connect(this.sfxBus);
             noise.start(now);
-            noise.stop(now + 0.1);
+            noise.stop(now + 0.08);
 
-            var thock = this.ctx.createOscillator();
-            thock.type = "sine";
-            thock.frequency.setValueAtTime(180 + Math.random() * 40, now);
-            thock.frequency.exponentialRampToValueAtTime(90, now + 0.08);
-            var thockGain = this.ctx.createGain();
-            thockGain.gain.setValueAtTime(0.55, now);
-            thockGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
-            thock.connect(thockGain);
-            thockGain.connect(this.sfxBus);
-            thock.start(now);
-            thock.stop(now + 0.12);
+            var tock = this.ctx.createOscillator();
+            tock.type = "sine";
+            tock.frequency.setValueAtTime(140 + Math.random() * 30, now);
+            tock.frequency.exponentialRampToValueAtTime(70, now + 0.1);
+            var tockGain = this.ctx.createGain();
+            tockGain.gain.setValueAtTime(0.6, now);
+            tockGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+            tock.connect(tockGain);
+            tockGain.connect(this.sfxBus);
+            tock.start(now);
+            tock.stop(now + 0.16);
         },
 
         playSwapWhoosh: function () {
@@ -934,11 +1131,11 @@ game_html = r"""
             var filter = this.ctx.createBiquadFilter();
             filter.type = "bandpass";
             filter.Q.value = 0.8;
-            filter.frequency.setValueAtTime(400, now);
-            filter.frequency.exponentialRampToValueAtTime(2200, now + 0.14);
+            filter.frequency.setValueAtTime(350, now);
+            filter.frequency.exponentialRampToValueAtTime(1600, now + 0.14);
             var g = this.ctx.createGain();
             g.gain.setValueAtTime(0.0001, now);
-            g.gain.exponentialRampToValueAtTime(0.22, now + 0.03);
+            g.gain.exponentialRampToValueAtTime(0.18, now + 0.03);
             g.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
             noise.connect(filter);
             filter.connect(g);
@@ -954,8 +1151,8 @@ game_html = r"""
             var now = this.ctx.currentTime;
             var osc = this.ctx.createOscillator();
             osc.type = "sine";
-            osc.frequency.setValueAtTime(120, now);
-            osc.frequency.exponentialRampToValueAtTime(55, now + 0.18);
+            osc.frequency.setValueAtTime(110, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.18);
             var g = this.ctx.createGain();
             g.gain.setValueAtTime(0.5, now);
             g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
@@ -968,7 +1165,7 @@ game_html = r"""
             noise.buffer = this.makeNoiseBuffer(0.05);
             var filter = this.ctx.createBiquadFilter();
             filter.type = "lowpass";
-            filter.frequency.value = 500;
+            filter.frequency.value = 450;
             var ng = this.ctx.createGain();
             ng.gain.setValueAtTime(0.3, now);
             ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
@@ -989,11 +1186,11 @@ game_html = r"""
             var filter = this.ctx.createBiquadFilter();
             filter.type = "bandpass";
             filter.Q.value = 0.7;
-            filter.frequency.setValueAtTime(250, now);
-            filter.frequency.exponentialRampToValueAtTime(1800, now + 0.45);
+            filter.frequency.setValueAtTime(220, now);
+            filter.frequency.exponentialRampToValueAtTime(1500, now + 0.45);
             var g = this.ctx.createGain();
             g.gain.setValueAtTime(0.0001, now);
-            g.gain.exponentialRampToValueAtTime(0.25, now + 0.08);
+            g.gain.exponentialRampToValueAtTime(0.22, now + 0.08);
             g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
             noise.connect(filter);
             filter.connect(g);
@@ -1008,20 +1205,10 @@ game_html = r"""
             if (!this.ctx) return;
             var self = this;
             var now = this.ctx.currentTime;
-            var notes = [523.25, 659.25, 783.99, 1046.50];
+            var notes = [392.00, 493.88, 587.33, 783.99];
             notes.forEach(function (freq, idx) {
-                var t = now + idx * 0.09;
-                var osc = self.ctx.createOscillator();
-                osc.type = "triangle";
-                osc.frequency.value = freq;
-                var g = self.ctx.createGain();
-                g.gain.setValueAtTime(0.0001, t);
-                g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
-                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-                osc.connect(g);
-                g.connect(self.sfxBus);
-                osc.start(t);
-                osc.stop(t + 0.4);
+                var t = now + idx * 0.1;
+                self.playSteelDrum(freq, t, 0.9);
             });
         },
 
@@ -1031,18 +1218,18 @@ game_html = r"""
             if (!this.ctx) return;
             var self = this;
             var now = this.ctx.currentTime;
-            var notes = [220.00, 196.00, 174.61];
+            var notes = [196.00, 174.61, 155.56];
             notes.forEach(function (freq, idx) {
-                var t = now + idx * 0.14;
+                var t = now + idx * 0.15;
                 var osc = self.ctx.createOscillator();
-                osc.type = "sawtooth";
+                osc.type = "sine";
                 osc.frequency.value = freq;
                 var filter = self.ctx.createBiquadFilter();
                 filter.type = "lowpass";
-                filter.frequency.value = 900;
+                filter.frequency.value = 700;
                 var g = self.ctx.createGain();
                 g.gain.setValueAtTime(0.0001, t);
-                g.gain.exponentialRampToValueAtTime(0.28, t + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.26, t + 0.02);
                 g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
                 osc.connect(filter);
                 filter.connect(g);
@@ -1057,16 +1244,16 @@ game_html = r"""
        CUP / BALL SCENE STATE
        ====================================================== */
     var scene = {
-        slotX: [],           // canonical x-position for each slot index
+        slotX: [],
         tableY: 0,
         cupBaseW: 0,
         cupBaseH: 0,
         ballRadius: 0,
-        cupAtSlot: [],        // cupAtSlot[slotIndex] = cupId
-        cupCurrentX: [],       // indexed by cupId -> current x
-        cupLift: [],           // indexed by cupId -> current vertical lift (0 = resting)
-        cupRevealLift: [],     // indexed by cupId -> vertical reveal offset (0 = down)
-        ballSlot: -1,          // which slot currently holds the ball (ground truth)
+        cupAtSlot: [],
+        cupCurrentX: [],
+        cupLift: [],
+        cupRevealLift: [],
+        ballSlot: -1,
         swapQueue: [],
         activeSwap: null,
         selectedGuessSlot: -1,
@@ -1104,7 +1291,7 @@ game_html = r"""
         var h = STATE.height;
         scene.tableY = h * 0.62;
         scene.cupBaseW = Math.max(46, Math.min(120, w / 8));
-        scene.cupBaseH = scene.cupBaseW * 1.35;
+        scene.cupBaseH = scene.cupBaseW * 1.3;
         scene.ballRadius = scene.cupBaseW * 0.24;
 
         var count = STATE.cupCount === null ? 3 : STATE.cupCount;
@@ -1136,10 +1323,6 @@ game_html = r"""
 
     /* ======================================================
        DRAWING: BACKGROUND (SUNNY RESORT BEACH SCENE)
-       Static elements (sky, sun, clouds, ocean, sand, palms)
-       are rendered once into an offscreen cache whenever the
-       canvas resizes, then simply blitted each frame. Only a
-       cheap animated water shimmer is redrawn live.
        ====================================================== */
     function buildBackgroundCache() {
         var w = STATE.width;
@@ -1392,7 +1575,7 @@ game_html = r"""
     }
 
     /* ======================================================
-       DRAWING: 3D BALL (SPHERE WITH SPECULAR HIGHLIGHT)
+       DRAWING: 3D POLISHED WOODEN BALL (MARBLE)
        ====================================================== */
     function drawBall(x, y, radius) {
         drawShadow(x, y + radius * 0.35, radius * 1.5, radius * 0.55, 0.5);
@@ -1401,116 +1584,140 @@ game_html = r"""
             x - radius * 0.35, y - radius * 0.4, radius * 0.08,
             x, y, radius * 1.15
         );
-        sphereGrad.addColorStop(0, "#fff6d8");
-        sphereGrad.addColorStop(0.25, "#ffdf6b");
-        sphereGrad.addColorStop(0.55, "#e8a72a");
-        sphereGrad.addColorStop(0.8, "#a4650f");
-        sphereGrad.addColorStop(1, "#5c3306");
+        sphereGrad.addColorStop(0, "#f3e2c2");
+        sphereGrad.addColorStop(0.22, "#c99b5c");
+        sphereGrad.addColorStop(0.5, "#8b5a2b");
+        sphereGrad.addColorStop(0.78, "#5c3a1a");
+        sphereGrad.addColorStop(1, "#2c1a0c");
 
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fillStyle = sphereGrad;
         ctx.fill();
 
-        ctx.beginPath();
-        ctx.arc(x - radius * 0.38, y - radius * 0.42, radius * 0.26, 0, Math.PI * 2);
-        var specGrad = ctx.createRadialGradient(
-            x - radius * 0.38, y - radius * 0.42, 0,
-            x - radius * 0.38, y - radius * 0.42, radius * 0.26
-        );
-        specGrad.addColorStop(0, "rgba(255,255,255,0.95)");
-        specGrad.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = specGrad;
-        ctx.fill();
+        /* subtle grain rings for a hand-carved feel */
+        ctx.save();
+        ctx.clip();
+        ctx.globalAlpha = 0.12;
+        ctx.strokeStyle = "#3a2410";
+        ctx.lineWidth = Math.max(1, radius * 0.05);
+        for (var g = 1; g <= 3; g++) {
+            ctx.beginPath();
+            ctx.ellipse(x, y, radius * (0.3 * g), radius * (0.14 * g), 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
 
+        /* warm cream highlight, matte -- softer & smaller than a glossy sheen */
         ctx.beginPath();
-        ctx.arc(x + radius * 0.3, y + radius * 0.32, radius * 0.1, 0, Math.PI * 2);
-        var specGrad2 = ctx.createRadialGradient(
-            x + radius * 0.3, y + radius * 0.32, 0,
-            x + radius * 0.3, y + radius * 0.32, radius * 0.1
+        ctx.arc(x - radius * 0.34, y - radius * 0.4, radius * 0.2, 0, Math.PI * 2);
+        var specGrad = ctx.createRadialGradient(
+            x - radius * 0.34, y - radius * 0.4, 0,
+            x - radius * 0.34, y - radius * 0.4, radius * 0.2
         );
-        specGrad2.addColorStop(0, "rgba(255,255,255,0.5)");
-        specGrad2.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = specGrad2;
+        specGrad.addColorStop(0, "rgba(255,244,220,0.55)");
+        specGrad.addColorStop(1, "rgba(255,244,220,0)");
+        ctx.fillStyle = specGrad;
         ctx.fill();
     }
 
     /* ======================================================
-       DRAWING: 3D CUP (CONE / CYLINDER WITH RIM + SHADING)
+       DRAWING: HYPER-REALISTIC 3D COCONUT CUP
        ====================================================== */
     function drawCup(x, y, liftY, w, h, highlightSelected) {
         var topY = y - h - liftY;
         var bottomY = y - liftY;
         var topRadiusX = w * 0.5;
-        var topRadiusY = w * 0.19;
-        var bottomRadiusX = w * 0.66;
-        var bottomRadiusY = w * 0.22;
+        var topRadiusY = w * 0.2;
+        var bottomRadiusX = w * 0.6;
+        var bottomRadiusY = w * 0.24;
 
         var shadowAlpha = Math.max(0.12, 0.5 - liftY * 0.004);
         drawShadow(x, y + bottomRadiusY * 0.4, bottomRadiusX * 1.25, bottomRadiusY * 0.9, shadowAlpha);
 
         ctx.save();
 
+        /* organic semi-spherical husk shell body */
         ctx.beginPath();
         ctx.moveTo(x - bottomRadiusX, bottomY);
-        ctx.lineTo(x - topRadiusX, topY);
+        ctx.quadraticCurveTo(x - topRadiusX * 1.08, (topY + bottomY) / 2, x - topRadiusX, topY);
         ctx.ellipse(x, topY, topRadiusX, topRadiusY, 0, Math.PI, 0, false);
-        ctx.lineTo(x + bottomRadiusX, bottomY);
+        ctx.quadraticCurveTo(x + topRadiusX * 1.08, (topY + bottomY) / 2, x + bottomRadiusX, bottomY);
         ctx.ellipse(x, bottomY, bottomRadiusX, bottomRadiusY, 0, 0, Math.PI, false);
         ctx.closePath();
 
         var bodyGrad = ctx.createLinearGradient(x - bottomRadiusX, 0, x + bottomRadiusX, 0);
         if (highlightSelected) {
-            bodyGrad.addColorStop(0, "#0a4030");
-            bodyGrad.addColorStop(0.18, "#12ffb4");
-            bodyGrad.addColorStop(0.42, "#0d8a63");
-            bodyGrad.addColorStop(0.6, "#063d2c");
-            bodyGrad.addColorStop(0.8, "#0fd695");
-            bodyGrad.addColorStop(1, "#052b1f");
+            bodyGrad.addColorStop(0, "#2a1a0c");
+            bodyGrad.addColorStop(0.18, "#9c7a3a");
+            bodyGrad.addColorStop(0.42, "#6b4e22");
+            bodyGrad.addColorStop(0.6, "#3d2c14");
+            bodyGrad.addColorStop(0.8, "#8a6a30");
+            bodyGrad.addColorStop(1, "#221708");
         } else {
-            bodyGrad.addColorStop(0, "#2a0b0e");
-            bodyGrad.addColorStop(0.16, "#c21f2e");
-            bodyGrad.addColorStop(0.4, "#7a0f1c");
-            bodyGrad.addColorStop(0.58, "#3a070d");
-            bodyGrad.addColorStop(0.8, "#a81826");
-            bodyGrad.addColorStop(1, "#22060a");
+            bodyGrad.addColorStop(0, "#22120a");
+            bodyGrad.addColorStop(0.16, "#5c3a20");
+            bodyGrad.addColorStop(0.4, "#3d2314");
+            bodyGrad.addColorStop(0.58, "#25150c");
+            bodyGrad.addColorStop(0.8, "#4a2e18");
+            bodyGrad.addColorStop(1, "#160c06");
         }
         ctx.fillStyle = bodyGrad;
         ctx.fill();
 
+        /* fibrous husk shadow bands */
         ctx.save();
         ctx.clip();
+        for (var band = 0; band < 5; band++) {
+            ctx.globalAlpha = 0.09;
+            ctx.strokeStyle = "#0e0803";
+            ctx.lineWidth = Math.max(1, w * 0.025);
+            var bandX = x - bottomRadiusX * 0.75 + band * (bottomRadiusX * 1.5 / 4);
+            ctx.beginPath();
+            ctx.moveTo(bandX, topY + topRadiusY);
+            ctx.quadraticCurveTo(bandX + (band % 2 === 0 ? -6 : 6), (topY + bottomY) / 2, bandX, bottomY - bottomRadiusY * 0.2);
+            ctx.stroke();
+        }
+
         var sheenGrad = ctx.createLinearGradient(x - bottomRadiusX, topY, x - bottomRadiusX * 0.2, bottomY);
-        sheenGrad.addColorStop(0, "rgba(255,255,255,0.35)");
-        sheenGrad.addColorStop(0.35, "rgba(255,255,255,0.05)");
-        sheenGrad.addColorStop(1, "rgba(255,255,255,0)");
+        sheenGrad.addColorStop(0, "rgba(255,235,200,0.16)");
+        sheenGrad.addColorStop(0.35, "rgba(255,235,200,0.03)");
+        sheenGrad.addColorStop(1, "rgba(255,235,200,0)");
         ctx.fillStyle = sheenGrad;
         ctx.beginPath();
-        ctx.ellipse(x - w * 0.22, (topY + bottomY) / 2, w * 0.12, h * 0.42, 0, 0, Math.PI * 2);
+        ctx.ellipse(x - w * 0.2, (topY + bottomY) / 2, w * 0.12, h * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
 
         ctx.restore();
 
+        /* rim: outer husk ring */
         ctx.beginPath();
         ctx.ellipse(x, topY, topRadiusX, topRadiusY, 0, 0, Math.PI * 2);
         var rimGrad = ctx.createRadialGradient(x, topY, topRadiusX * 0.2, x, topY, topRadiusX);
         if (highlightSelected) {
-            rimGrad.addColorStop(0, "#e6fff6");
-            rimGrad.addColorStop(0.5, "#25ffbf");
-            rimGrad.addColorStop(1, "#04241a");
+            rimGrad.addColorStop(0, "#eadfc0");
+            rimGrad.addColorStop(0.45, "#c9a24a");
+            rimGrad.addColorStop(1, "#2a1a06");
         } else {
-            rimGrad.addColorStop(0, "#3a0d12");
-            rimGrad.addColorStop(0.5, "#170608");
-            rimGrad.addColorStop(1, "#000000");
+            rimGrad.addColorStop(0, "#4a2e18");
+            rimGrad.addColorStop(0.45, "#2a1810");
+            rimGrad.addColorStop(1, "#0c0602");
         }
         ctx.fillStyle = rimGrad;
         ctx.fill();
 
+        /* crisp milky-white inner meat rim -- freshly sliced coconut edge */
         ctx.beginPath();
-        ctx.ellipse(x, topY, topRadiusX * 0.82, topRadiusY * 0.72, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = highlightSelected ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.12)";
-        ctx.lineWidth = Math.max(1, w * 0.012);
+        ctx.ellipse(x, topY, topRadiusX * 0.8, topRadiusY * 0.7, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = highlightSelected ? "rgba(248,250,252,0.95)" : "rgba(248,250,252,0.88)";
+        ctx.lineWidth = Math.max(2, w * 0.045);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.ellipse(x, topY, topRadiusX * 0.66, topRadiusY * 0.56, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(210,190,150,0.5)";
+        ctx.lineWidth = Math.max(1, w * 0.014);
         ctx.stroke();
     }
 
@@ -1521,6 +1728,11 @@ game_html = r"""
         if (!lastFrameTime) lastFrameTime = timestamp;
         var dt = timestamp - lastFrameTime;
         lastFrameTime = timestamp;
+
+        if (STATE.phase === "loading") {
+            rafId = requestAnimationFrame(renderFrame);
+            return;
+        }
 
         drawBackground();
 
@@ -1535,6 +1747,7 @@ game_html = r"""
         if (!STATE.paused) {
             scene.idleBobPhase += dt * 0.002;
             stepAnimation(timestamp, dt);
+            updateSplashParticles(dt);
         }
 
         var ballShown = shouldShowBallThisFrame();
@@ -1557,9 +1770,10 @@ game_html = r"""
             if (cx === undefined) continue;
             var bob = STATE.phase === "guessing" ? Math.sin(scene.idleBobPhase + cupId) * 1.5 : 0;
             var totalLift = (scene.cupLift[cupId] || 0) + (scene.cupRevealLift[cupId] || 0) + bob;
-            var isSelected = (STATE.phase === "guessing" && scene.hoverSlotForCup === cupId);
             drawCup(cx, scene.tableY, totalLift, scene.cupBaseW, scene.cupBaseH, false);
         }
+
+        drawSplashParticles();
 
         rafId = requestAnimationFrame(renderFrame);
     }
@@ -1606,11 +1820,18 @@ game_html = r"""
         if (t >= 1) {
             for (var j = 0; j < scene.cupLift.length; j++) scene.cupLift[j] = 0;
             AudioEngine.playThud();
+            spawnSplash(STATE.width / 2, scene.tableY);
             beginShuffling();
         }
     }
 
-    /* ---------------- SHUFFLING PHASE ---------------- */
+    /* ---------------- SHUFFLING PHASE ----------------
+       Triple-axis wave shuffle: every swap combines
+         1) horizontal sinusoidal cross-over (base position swap)
+         2) vertical orbital sway (sin loop, simulating a 3D orbit)
+         3) figure-eight intercept curve (Lissajous 2:1 wobble)
+       Speed + amplitude scale with the chosen difficulty.
+       ==================================================== */
     function beginShuffling() {
         STATE.phase = "shuffling";
         var profile = DIFFICULTY_PROFILES[STATE.difficulty];
@@ -1625,7 +1846,7 @@ game_html = r"""
             }
         }
         scene.activeSwap = null;
-        setHudMessage("TRACK THE ORB");
+        setHudMessage("TRACK THE COCONUT");
         if (count < 2) {
             finishShuffling();
         }
@@ -1653,7 +1874,13 @@ game_html = r"""
                 startXB: scene.slotX[slotB],
                 startTime: timestamp,
                 duration: profile.swapDuration,
-                lift: profile.lift
+                lift: profile.lift,
+                waveSpeed: profile.waveSpeed,
+                orbitAmp: profile.orbitAmp,
+                fig8Amp: profile.fig8Amp,
+                orbitCycles: 1 + Math.round(profile.waveSpeed),
+                fig8Seed: Math.random() * Math.PI * 2,
+                fig8Dir: Math.random() > 0.5 ? 1 : -1
             };
             AudioEngine.playSwapWhoosh();
         }
@@ -1664,14 +1891,23 @@ game_html = r"""
             ? 2 * t * t
             : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
-        var newXA = sw.startXA + (sw.startXB - sw.startXA) * easedT;
-        var newXB = sw.startXB + (sw.startXA - sw.startXB) * easedT;
-        scene.cupCurrentX[sw.cupA] = newXA;
-        scene.cupCurrentX[sw.cupB] = newXB;
+        /* (1) horizontal cross-over: base swap position */
+        var baseXA = sw.startXA + (sw.startXB - sw.startXA) * easedT;
+        var baseXB = sw.startXB + (sw.startXA - sw.startXB) * easedT;
 
+        /* (3) figure-eight intercept curve -- Lissajous 2:1 (x: 2*theta, y: theta) */
+        var theta = t * Math.PI * sw.fig8Dir;
+        var fig8X = Math.sin(theta * 2 + sw.fig8Seed) * sw.fig8Amp * Math.sin(Math.PI * t);
+        var fig8Y = Math.cos(theta + sw.fig8Seed) * sw.fig8Amp * 0.6 * Math.sin(Math.PI * t);
+
+        scene.cupCurrentX[sw.cupA] = baseXA + fig8X;
+        scene.cupCurrentX[sw.cupB] = baseXB - fig8X;
+
+        /* (2) vertical orbital sway -- loops up/down like a circular 3D orbit, on top of the swap arc */
         var arcLift = Math.sin(Math.PI * t) * sw.lift;
-        scene.cupLift[sw.cupA] = arcLift;
-        scene.cupLift[sw.cupB] = arcLift;
+        var orbitalSway = Math.sin(t * Math.PI * 2 * sw.orbitCycles) * sw.orbitAmp * Math.sin(Math.PI * t);
+        scene.cupLift[sw.cupA] = arcLift + orbitalSway + fig8Y;
+        scene.cupLift[sw.cupB] = arcLift - orbitalSway - fig8Y;
 
         if (t >= 1) {
             scene.cupAtSlot[sw.slotA] = sw.cupB;
@@ -1694,7 +1930,7 @@ game_html = r"""
 
     function finishShuffling() {
         STATE.phase = "guessing";
-        setHudMessage("SELECT THE TARGET NODE");
+        setHudMessage("SELECT THE TARGET SHELL");
     }
 
     /* ---------------- REVEALING PHASE ---------------- */
@@ -1773,6 +2009,7 @@ game_html = r"""
         scene.activeSwap = null;
         scene.selectedGuessSlot = -1;
         scene.revealTargets = [];
+        scene.splashParticles = [];
     }
 
     /* ======================================================
@@ -1936,8 +2173,6 @@ game_html = r"""
         var pos = getPointerPos(evt);
 
         if (hudMenuBtn.getBoundingClientRect().width > 0 && !hudMenuBtn.classList.contains("hidden-el")) {
-            var menuRect = hudMenuBtn.getBoundingClientRect();
-            var canvasRect = canvas.getBoundingClientRect();
             if (evt.target === hudMenuBtn || hudMenuBtn.contains(evt.target)) {
                 return;
             }
@@ -2003,19 +2238,19 @@ game_html = r"""
 
     btnReturnChassis.addEventListener("click", function () {
         closeControlPane();
-        resetToChassisCore();
+        resetToMainGate();
     });
 
     btnRecalibrate.addEventListener("click", function () {
         closeControlPane();
-        recalibrateSettings();
+        adjustShuffleSettings();
     });
 
-    function resetToChassisCore() {
+    function resetToMainGate() {
         STATE.phase = "intro";
         STATE.paused = false;
         STATE.difficulty = null;
-        STATE.cupCount = null;
+        STATE.cupCount = 3;
         STATE.round = 0;
         STATE.wins = 0;
         updateScorePill();
@@ -2028,6 +2263,8 @@ game_html = r"""
 
         diffButtons.forEach(function (b) { b.classList.remove("selected"); });
         cupSlots.forEach(function (s) { s.classList.remove("selected"); });
+        var defaultSlot = cupSelector.querySelector('[data-count="3"]');
+        if (defaultSlot) defaultSlot.classList.add("selected");
         startBtn.disabled = true;
 
         scene.cupAtSlot = [];
@@ -2041,7 +2278,7 @@ game_html = r"""
         introOverlay.classList.remove("hidden");
     }
 
-    function recalibrateSettings() {
+    function adjustShuffleSettings() {
         STATE.phase = "intro";
         STATE.paused = false;
         hideResultOverlay();
@@ -2067,6 +2304,8 @@ game_html = r"""
        ====================================================== */
     resizeCanvas();
     updateScorePill();
+    initLoadingVisuals();
+    runLoadingBar();
     rafId = requestAnimationFrame(renderFrame);
 
 })();
