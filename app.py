@@ -447,6 +447,38 @@ game_html = r"""
         backdrop-filter: blur(4px);
     }
 
+    #audio-unlock-hint {
+        position: absolute;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 11px 22px;
+        border-radius: 30px;
+        background: rgba(6,10,18,0.85);
+        border: 1.5px solid #52e8ff;
+        color: #eafcff;
+        font-size: clamp(11px, 2vw, 13px);
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        z-index: 65;
+        cursor: pointer;
+        box-shadow: 0 0 20px rgba(82,232,255,0.5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        animation: hintPulse 1.6s ease-in-out infinite;
+    }
+
+    #audio-unlock-hint.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    @keyframes hintPulse {
+        0%, 100% { box-shadow: 0 0 20px rgba(82,232,255,0.5); }
+        50% { box-shadow: 0 0 32px rgba(82,232,255,0.85); }
+    }
+
     /* ---------------- RESULT OVERLAY ---------------- */
     #result-overlay {
         position: absolute;
@@ -533,6 +565,8 @@ game_html = r"""
 
     <div id="hud-message"></div>
 
+    <div id="audio-unlock-hint">&#128266; TAP HERE TO ENABLE SOUND</div>
+
     <div id="pane-backdrop"></div>
     <div id="control-pane">
         <div class="control-pane-title">SYSTEM CONTROL CONSOLE</div>
@@ -594,6 +628,7 @@ game_html = r"""
     var hudMessage = document.getElementById("hud-message");
     var topRightHud = document.getElementById("top-right-hud");
     var muteBtn = document.getElementById("mute-btn");
+    var audioUnlockHint = document.getElementById("audio-unlock-hint");
     var scorePill = document.getElementById("score-pill");
     var resultOverlay = document.getElementById("result-overlay");
     var resultTitle = document.getElementById("result-title");
@@ -618,6 +653,404 @@ game_html = r"""
         easy:   { swaps: 5,  swapDuration: 900, lift: 46, label: "EASY" },
         medium: { swaps: 9,  swapDuration: 560, lift: 60, label: "MEDIUM" },
         hard:   { swaps: 15, swapDuration: 300, lift: 78, label: "HARD" }
+    };
+
+    /* ======================================================
+       AUDIO ENGINE
+       Fully synthesized in-browser via the Web Audio API.
+       No external audio files are loaded — background music
+       is a generated chill synthwave loop and every sound
+       effect (cup clacks, whooshes, thuds, stingers) is
+       built from oscillators and filtered noise buffers.
+       ====================================================== */
+    var AudioEngine = {
+        ctx: null,
+        master: null,
+        musicBus: null,
+        sfxBus: null,
+        delayNode: null,
+        delayFeedback: null,
+        muted: false,
+        musicPlaying: false,
+        schedulerId: null,
+        nextStepTime: 0,
+        stepIndex: 0,
+        tempo: 92,
+        stepsPerBeat: 2,
+        chords: [
+            { notes: [110.00, 220.00, 261.63, 329.63], bass: 55.00 },
+            { notes: [87.31, 174.61, 220.00, 261.63], bass: 43.65 },
+            { notes: [98.00, 196.00, 246.94, 293.66], bass: 49.00 },
+            { notes: [130.81, 196.00, 246.94, 329.63], bass: 65.41 }
+        ],
+
+        init: function () {
+            if (this.ctx) return;
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            this.ctx = new AC();
+
+            this.master = this.ctx.createGain();
+            this.master.gain.value = this.muted ? 0 : 1.0;
+
+            this.compressor = this.ctx.createDynamicsCompressor();
+            this.compressor.threshold.value = -18;
+            this.compressor.knee.value = 24;
+            this.compressor.ratio.value = 4;
+            this.compressor.attack.value = 0.003;
+            this.compressor.release.value = 0.25;
+
+            this.master.connect(this.compressor);
+            this.compressor.connect(this.ctx.destination);
+
+            this.musicBus = this.ctx.createGain();
+            this.musicBus.gain.value = 0.42;
+            this.musicBus.connect(this.master);
+
+            this.sfxBus = this.ctx.createGain();
+            this.sfxBus.gain.value = 1.0;
+            this.sfxBus.connect(this.master);
+
+            this.delayNode = this.ctx.createDelay();
+            this.delayNode.delayTime.value = 0.28;
+            this.delayFeedback = this.ctx.createGain();
+            this.delayFeedback.gain.value = 0.22;
+            var delayFilter = this.ctx.createBiquadFilter();
+            delayFilter.type = "lowpass";
+            delayFilter.frequency.value = 2200;
+            this.delayNode.connect(delayFilter);
+            delayFilter.connect(this.delayFeedback);
+            this.delayFeedback.connect(this.delayNode);
+            this.delayNode.connect(this.musicBus);
+        },
+
+        resume: function () {
+            if (this.ctx && this.ctx.state !== "running") {
+                return this.ctx.resume();
+            }
+            return Promise.resolve();
+        },
+
+        toggleMute: function () {
+            this.muted = !this.muted;
+            if (this.master && this.ctx) {
+                this.master.gain.setTargetAtTime(this.muted ? 0 : 1.0, this.ctx.currentTime, 0.05);
+            }
+            return this.muted;
+        },
+
+        /* ---------------- BACKGROUND MUSIC ---------------- */
+        startMusic: function () {
+            this.init();
+            this.resume();
+            if (this.musicPlaying || !this.ctx) return;
+            this.musicPlaying = true;
+            this.stepIndex = 0;
+            this.nextStepTime = this.ctx.currentTime + 0.05;
+            var self = this;
+            this.schedulerId = setInterval(function () { self.scheduler(); }, 25);
+        },
+
+        stopMusic: function () {
+            this.musicPlaying = false;
+            if (this.schedulerId) {
+                clearInterval(this.schedulerId);
+                this.schedulerId = null;
+            }
+        },
+
+        scheduler: function () {
+            if (!this.ctx) return;
+            if (this.nextStepTime < this.ctx.currentTime) {
+                this.nextStepTime = this.ctx.currentTime + 0.02;
+            }
+            var secondsPerStep = (60.0 / this.tempo) / this.stepsPerBeat;
+            while (this.nextStepTime < this.ctx.currentTime + 0.12) {
+                try {
+                    this.scheduleStep(this.stepIndex, this.nextStepTime);
+                } catch (schedErr) {
+                    /* never let one bad note stop the whole loop */
+                }
+                this.nextStepTime += secondsPerStep;
+                this.stepIndex = (this.stepIndex + 1) % 32;
+            }
+        },
+
+        scheduleStep: function (step, time) {
+            var barIndex = Math.floor(step / 8) % this.chords.length;
+            var chord = this.chords[barIndex];
+            var stepInBar = step % 8;
+
+            if (stepInBar === 0) {
+                this.playPad(chord.notes, time, (60.0 / this.tempo) * 4);
+            }
+            if (stepInBar === 0 || stepInBar === 4) {
+                this.playBassPluck(chord.bass, time);
+            }
+            var arpNote = chord.notes[step % chord.notes.length];
+            if (Math.random() > 0.18) {
+                this.playArpNote(arpNote * 2, time, stepInBar % 2 === 0 ? 0.5 : 0.32);
+            }
+            this.playHat(time, stepInBar % 2 === 0 ? 0.18 : 0.09);
+        },
+
+        playPad: function (freqs, time, duration) {
+            if (!this.musicPlaying) return;
+            var self = this;
+            var padGain = this.ctx.createGain();
+            padGain.gain.setValueAtTime(0.0001, time);
+            padGain.gain.exponentialRampToValueAtTime(0.16, time + 0.9);
+            padGain.gain.setValueAtTime(0.16, time + duration - 0.6);
+            padGain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+            var filter = this.ctx.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.value = 900;
+            filter.Q.value = 0.6;
+
+            padGain.connect(filter);
+            filter.connect(this.musicBus);
+
+            freqs.forEach(function (f) {
+                var osc = self.ctx.createOscillator();
+                osc.type = "triangle";
+                osc.frequency.value = f;
+                osc.connect(padGain);
+                osc.start(time);
+                osc.stop(time + duration + 0.05);
+            });
+        },
+
+        playBassPluck: function (freq, time) {
+            if (!this.musicPlaying) return;
+            var osc = this.ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            var g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, time);
+            g.gain.exponentialRampToValueAtTime(0.35, time + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.42);
+            osc.connect(g);
+            g.connect(this.musicBus);
+            osc.start(time);
+            osc.stop(time + 0.45);
+        },
+
+        playArpNote: function (freq, time, velocity) {
+            if (!this.musicPlaying) return;
+            var osc = this.ctx.createOscillator();
+            osc.type = "sawtooth";
+            osc.frequency.value = freq;
+            var filter = this.ctx.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.value = 2600;
+            var g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, time);
+            g.gain.exponentialRampToValueAtTime(velocity * 0.22, time + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
+            osc.connect(filter);
+            filter.connect(g);
+            g.connect(this.musicBus);
+            if (this.delayNode) g.connect(this.delayNode);
+            osc.start(time);
+            osc.stop(time + 0.3);
+        },
+
+        playHat: function (time, velocity) {
+            if (!this.musicPlaying) return;
+            var bufferSize = Math.floor(this.ctx.sampleRate * 0.05);
+            var buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            var data = buffer.getChannelData(0);
+            for (var i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+            }
+            var noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            var filter = this.ctx.createBiquadFilter();
+            filter.type = "highpass";
+            filter.frequency.value = 7000;
+            var g = this.ctx.createGain();
+            g.gain.setValueAtTime(velocity * 0.5, time);
+            g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+            noise.connect(filter);
+            filter.connect(g);
+            g.connect(this.musicBus);
+            noise.start(time);
+            noise.stop(time + 0.06);
+        },
+
+        /* ---------------- SOUND EFFECTS ---------------- */
+        makeNoiseBuffer: function (duration) {
+            var bufferSize = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
+            var buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            var data = buffer.getChannelData(0);
+            for (var i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            return buffer;
+        },
+
+        playCupClack: function () {
+            this.init();
+            this.resume();
+            if (!this.ctx) return;
+            var now = this.ctx.currentTime;
+
+            var noise = this.ctx.createBufferSource();
+            noise.buffer = this.makeNoiseBuffer(0.09);
+            var bandpass = this.ctx.createBiquadFilter();
+            bandpass.type = "bandpass";
+            bandpass.frequency.value = 1400 + Math.random() * 500;
+            bandpass.Q.value = 1.6;
+            var noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.5, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+            noise.connect(bandpass);
+            bandpass.connect(noiseGain);
+            noiseGain.connect(this.sfxBus);
+            noise.start(now);
+            noise.stop(now + 0.1);
+
+            var thock = this.ctx.createOscillator();
+            thock.type = "sine";
+            thock.frequency.setValueAtTime(180 + Math.random() * 40, now);
+            thock.frequency.exponentialRampToValueAtTime(90, now + 0.08);
+            var thockGain = this.ctx.createGain();
+            thockGain.gain.setValueAtTime(0.55, now);
+            thockGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+            thock.connect(thockGain);
+            thockGain.connect(this.sfxBus);
+            thock.start(now);
+            thock.stop(now + 0.12);
+        },
+
+        playSwapWhoosh: function () {
+            this.init();
+            this.resume();
+            if (!this.ctx) return;
+            var now = this.ctx.currentTime;
+            var noise = this.ctx.createBufferSource();
+            noise.buffer = this.makeNoiseBuffer(0.16);
+            var filter = this.ctx.createBiquadFilter();
+            filter.type = "bandpass";
+            filter.Q.value = 0.8;
+            filter.frequency.setValueAtTime(400, now);
+            filter.frequency.exponentialRampToValueAtTime(2200, now + 0.14);
+            var g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.22, now + 0.03);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+            noise.connect(filter);
+            filter.connect(g);
+            g.connect(this.sfxBus);
+            noise.start(now);
+            noise.stop(now + 0.17);
+        },
+
+        playThud: function () {
+            this.init();
+            this.resume();
+            if (!this.ctx) return;
+            var now = this.ctx.currentTime;
+            var osc = this.ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(55, now + 0.18);
+            var g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.5, now);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+            osc.connect(g);
+            g.connect(this.sfxBus);
+            osc.start(now);
+            osc.stop(now + 0.25);
+
+            var noise = this.ctx.createBufferSource();
+            noise.buffer = this.makeNoiseBuffer(0.05);
+            var filter = this.ctx.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.value = 500;
+            var ng = this.ctx.createGain();
+            ng.gain.setValueAtTime(0.3, now);
+            ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+            noise.connect(filter);
+            filter.connect(ng);
+            ng.connect(this.sfxBus);
+            noise.start(now);
+            noise.stop(now + 0.06);
+        },
+
+        playRevealWhoosh: function () {
+            this.init();
+            this.resume();
+            if (!this.ctx) return;
+            var now = this.ctx.currentTime;
+            var noise = this.ctx.createBufferSource();
+            noise.buffer = this.makeNoiseBuffer(0.5);
+            var filter = this.ctx.createBiquadFilter();
+            filter.type = "bandpass";
+            filter.Q.value = 0.7;
+            filter.frequency.setValueAtTime(250, now);
+            filter.frequency.exponentialRampToValueAtTime(1800, now + 0.45);
+            var g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.25, now + 0.08);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+            noise.connect(filter);
+            filter.connect(g);
+            g.connect(this.sfxBus);
+            noise.start(now);
+            noise.stop(now + 0.52);
+        },
+
+        playWinStinger: function () {
+            this.init();
+            this.resume();
+            if (!this.ctx) return;
+            var self = this;
+            var now = this.ctx.currentTime;
+            var notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach(function (freq, idx) {
+                var t = now + idx * 0.09;
+                var osc = self.ctx.createOscillator();
+                osc.type = "triangle";
+                osc.frequency.value = freq;
+                var g = self.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+                osc.connect(g);
+                g.connect(self.sfxBus);
+                osc.start(t);
+                osc.stop(t + 0.4);
+            });
+        },
+
+        playLoseStinger: function () {
+            this.init();
+            this.resume();
+            if (!this.ctx) return;
+            var self = this;
+            var now = this.ctx.currentTime;
+            var notes = [220.00, 196.00, 174.61];
+            notes.forEach(function (freq, idx) {
+                var t = now + idx * 0.14;
+                var osc = self.ctx.createOscillator();
+                osc.type = "sawtooth";
+                osc.frequency.value = freq;
+                var filter = self.ctx.createBiquadFilter();
+                filter.type = "lowpass";
+                filter.frequency.value = 900;
+                var g = self.ctx.createGain();
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.28, t + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+                osc.connect(filter);
+                filter.connect(g);
+                g.connect(self.sfxBus);
+                osc.start(t);
+                osc.stop(t + 0.42);
+            });
+        }
     };
 
     /* ======================================================
@@ -1000,6 +1433,7 @@ game_html = r"""
         }
         if (t >= 1) {
             for (var j = 0; j < scene.cupLift.length; j++) scene.cupLift[j] = 0;
+            AudioEngine.playThud();
             beginShuffling();
         }
     }
@@ -1049,6 +1483,7 @@ game_html = r"""
                 duration: profile.swapDuration,
                 lift: profile.lift
             };
+            AudioEngine.playSwapWhoosh();
         }
 
         var sw = scene.activeSwap;
@@ -1073,6 +1508,7 @@ game_html = r"""
             scene.cupCurrentX[sw.cupB] = scene.slotX[sw.slotA];
             scene.cupLift[sw.cupA] = 0;
             scene.cupLift[sw.cupB] = 0;
+            AudioEngine.playCupClack();
 
             if (scene.ballSlot === sw.slotA) {
                 scene.ballSlot = sw.slotB;
@@ -1121,6 +1557,7 @@ game_html = r"""
             scene.revealTargets = targets;
         }
         setHudMessage("");
+        AudioEngine.playRevealWhoosh();
     }
 
     function stepRevealing(timestamp) {
@@ -1199,6 +1636,11 @@ game_html = r"""
         resultTitle.textContent = win ? "NICE WORK" : "OOPSY DOOPSY";
         resultTitle.className = win ? "win" : "lose";
         resultOverlay.classList.add("visible");
+        if (win) {
+            AudioEngine.playWinStinger();
+        } else {
+            AudioEngine.playLoseStinger();
+        }
     }
 
     function hideResultOverlay() {
@@ -1217,6 +1659,8 @@ game_html = r"""
     var diffButtons = difficultyRow.querySelectorAll(".diff-btn");
     diffButtons.forEach(function (btn) {
         btn.addEventListener("click", function () {
+            AudioEngine.init();
+            AudioEngine.resume();
             diffButtons.forEach(function (b) { b.classList.remove("selected"); });
             btn.classList.add("selected");
             STATE.difficulty = btn.getAttribute("data-diff");
@@ -1227,6 +1671,8 @@ game_html = r"""
     var cupSlots = cupSelector.querySelectorAll(".cup-slot");
     cupSlots.forEach(function (slot) {
         slot.addEventListener("click", function () {
+            AudioEngine.init();
+            AudioEngine.resume();
             cupSlots.forEach(function (s) { s.classList.remove("selected"); });
             slot.classList.add("selected");
             STATE.cupCount = parseInt(slot.getAttribute("data-count"), 10);
@@ -1241,12 +1687,55 @@ game_html = r"""
 
     startBtn.addEventListener("click", function () {
         if (startBtn.disabled) return;
+        AudioEngine.init();
+        var resumePromise = AudioEngine.resume();
+        AudioEngine.startMusic();
+        if (resumePromise && typeof resumePromise.then === "function") {
+            resumePromise.then(checkAudioUnlockState).catch(checkAudioUnlockState);
+        }
+        setTimeout(checkAudioUnlockState, 350);
         introOverlay.classList.add("hidden");
         hudMenuBtn.classList.remove("hidden-el");
-        scorePill.classList.remove("hidden-el");
+        topRightHud.classList.remove("hidden-el");
         updatePaneStatus();
         initSceneForRound();
         beginDropping();
+    });
+
+    function checkAudioUnlockState() {
+        if (AudioEngine.ctx && AudioEngine.ctx.state !== "running") {
+            audioUnlockHint.classList.add("visible");
+        } else {
+            audioUnlockHint.classList.remove("visible");
+        }
+    }
+
+    audioUnlockHint.addEventListener("click", function () {
+        AudioEngine.init();
+        var p = AudioEngine.resume();
+        if (!AudioEngine.musicPlaying) {
+            AudioEngine.startMusic();
+        }
+        if (p && typeof p.then === "function") {
+            p.then(checkAudioUnlockState).catch(checkAudioUnlockState);
+        } else {
+            checkAudioUnlockState();
+        }
+    });
+
+    /* Any tap anywhere in the game can also nudge a suspended
+       AudioContext back to life -- some browsers only fully
+       unlock audio after a couple of direct interactions. */
+    document.addEventListener("pointerdown", function () {
+        if (AudioEngine.ctx && AudioEngine.ctx.state !== "running") {
+            AudioEngine.resume().then(checkAudioUnlockState).catch(function () {});
+        }
+    });
+
+    muteBtn.addEventListener("click", function () {
+        var nowMuted = AudioEngine.toggleMute();
+        muteBtn.innerHTML = nowMuted ? "&#128263;" : "&#128266;";
+        muteBtn.classList.toggle("muted", nowMuted);
     });
 
     /* ======================================================
@@ -1360,8 +1849,10 @@ game_html = r"""
         updateScorePill();
         hideResultOverlay();
         setHudMessage("");
+        AudioEngine.stopMusic();
+        audioUnlockHint.classList.remove("visible");
         hudMenuBtn.classList.add("hidden-el");
-        scorePill.classList.add("hidden-el");
+        topRightHud.classList.add("hidden-el");
 
         diffButtons.forEach(function (b) { b.classList.remove("selected"); });
         cupSlots.forEach(function (s) { s.classList.remove("selected"); });
@@ -1383,8 +1874,10 @@ game_html = r"""
         STATE.paused = false;
         hideResultOverlay();
         setHudMessage("");
+        AudioEngine.stopMusic();
+        audioUnlockHint.classList.remove("visible");
         hudMenuBtn.classList.add("hidden-el");
-        scorePill.classList.add("hidden-el");
+        topRightHud.classList.add("hidden-el");
 
         scene.cupAtSlot = [];
         scene.cupCurrentX = [];
